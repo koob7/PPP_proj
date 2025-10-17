@@ -25,8 +25,24 @@ filenames = [
     "ramie6.step",
 ]
 
+# --- Tabela transformacji dla każdego pliku (wypełnij wartości później) ---
+# Dla każdego pliku możesz podać słownik z kluczami:
+#  - translate: (dx, dy, dz) lub None
+#  - rotations: lista słowników opisujących obroty (możesz podać 0,1 lub 2 obroty)
+#    każdy element listy ma postać { 'origin': (ox,oy,oz), 'axis': (ax,ay,az), 'angle_deg': value }
+# Przykład: { 'translate': (0,100,0), 'rotations': [ { 'origin': (0,100,0), 'axis': (0,0,1), 'angle_deg': 90 }, None ] }
+transforms_table = [
+    { 'translate': (0, 0, 0), 'rotations': [ { 'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0 }, { 'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0 } ] },
+    { 'translate': (0, 0, 0), 'rotations': [ { 'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0 }, { 'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0 } ] },
+    { 'translate': (0, 0, 0), 'rotations': [ { 'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0 }, { 'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0 } ] },
+    { 'translate': (0, 0, 0), 'rotations': [ { 'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0 }, { 'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0 } ] },
+    { 'translate': (0, 0, 0), 'rotations': [ { 'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0 }, { 'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0 } ] },
+    { 'translate': (0, 0, 0), 'rotations': [ { 'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0 }, { 'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0 } ] },
+    { 'translate': (0, 0, 0), 'rotations': [ { 'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0 }, { 'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0 } ] },
+]
 
-def load_and_center(file_list):
+
+def load_and_center(file_list, transforms=None):
     """Wczyta listę plików STEP, przetransferuje i wycentruje każdy kształt.
     Zwraca (shapes, statuses). Jeśli któryś plik nie został poprawnie wczytany,
     shapes będzie None i zwracane będą statusy dla diagnostyki."""
@@ -41,9 +57,45 @@ def load_and_center(file_list):
         return None, statuses
 
     shapes = []
-    for rdr in readers:
+    for idx, rdr in enumerate(readers):
         rdr.TransferRoots()
-        shapes.append(center_shape(rdr.Shape()))
+        shp = center_shape(rdr.Shape())
+
+        # Apply per-shape transforms if provided
+        if transforms and idx < len(transforms):
+            tf = transforms[idx]
+            # Rotation first (so rotation happens around specified origin)
+            # Support either single 'rotate' (legacy) or a list 'rotations' with 0..2 entries
+            rotations = []
+            if tf.get('rotations'):
+                rotations = tf['rotations'] or []
+            elif tf.get('rotate'):
+                rotations = [tf['rotate']]
+
+            for rot in rotations:
+                if not rot:
+                    continue
+                origin = rot.get('origin')
+                axis = rot.get('axis')
+                angle = rot.get('angle_deg')
+                if origin and axis and angle is not None:
+                    ax_pnt = gp_Pnt(*origin)
+                    ax_dir = gp_Dir(*axis)
+                    ax = gp_Ax1(ax_pnt, ax_dir)
+                    rot_trsf = gp_Trsf()
+                    rot_trsf.SetRotation(ax, math.radians(angle))
+                    shp = BRepBuilderAPI_Transform(shp, rot_trsf, True).Shape()
+
+            # Then translation
+            if tf.get('translate'):
+                tr = tf['translate']
+                if tr:
+                    vec = gp_Vec(*tr)
+                    tr_trsf = gp_Trsf()
+                    tr_trsf.SetTranslation(vec)
+                    shp = BRepBuilderAPI_Transform(shp, tr_trsf, True).Shape()
+
+        shapes.append(shp)
 
     return shapes, statuses
 
@@ -70,21 +122,10 @@ else:
     # Rozpakuj listę do zmiennych dla czytelności
     shape0, shape1, shape2, shape3, shape4, shape5, shape6 = shapes
 
-    # --- Obrót pierwszego modelu ---
-    dx, dy, dz = 0, 100, 0
-    trsf = gp_Trsf()
-    trsf.SetTranslation(gp_Vec(dx, dy, dz))
-    moved_shape1 = BRepBuilderAPI_Transform(shape1, trsf, True).Shape()
-    origin = gp_Pnt(0, 100, 0)
-    axis = gp_Ax1(origin, gp_Dir(0, 0, 1))
-    rotation = gp_Trsf()
-    rotation.SetRotation(axis, math.radians(90))
-    rotated_shape1 = BRepBuilderAPI_Transform(moved_shape1, rotation, True).Shape()
 
     # --- Wyświetlenie modeli ---
     display.DisplayShape(shape0, color=rgb_color(0.6,0.6,0.6))       # podstawa
-    display.DisplayShape(shape1, color=rgb_color(0.4,0.6,1))         # ramie1 (oryginał)
-    display.DisplayShape(rotated_shape1, color=rgb_color(0.4,1,0.3)) # ramie1 (obrócony)
+    display.DisplayShape(shape1, color=rgb_color(0.4,0.6,1))         # ramie1
     display.DisplayShape(shape2, color=rgb_color(0.4,0.6,1))         # ramie2
     display.DisplayShape(shape3, color=rgb_color(0.4,0.6,1))         # ramie3
     display.DisplayShape(shape4, color=rgb_color(0.6,0.8,0.4))       # ramie4
@@ -100,8 +141,5 @@ else:
     display.FitAll()
     display.View.Update()
     print("✅ Displayed centered and rotated models (ramie0..ramie6).")
-
-# --- Ustawienia widoku ---
-display.hide_triedron()  # pokazuje układ osi
 
 start_display()
