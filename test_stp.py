@@ -15,13 +15,21 @@ import math
 display, start_display, add_menu, add_function_to_menu = init_display()
 
 # --- Wczytanie plików STEP ---
+reader0 = STEPControl_Reader()  # podstawa
 reader1 = STEPControl_Reader()
 reader2 = STEPControl_Reader()
 reader3 = STEPControl_Reader()
+reader4 = STEPControl_Reader()
+reader5 = STEPControl_Reader()
+reader6 = STEPControl_Reader()
 
+status0 = reader0.ReadFile(r"podstawa.step")
 status1 = reader1.ReadFile(r"ramie1.step")
 status2 = reader2.ReadFile(r"ramie2.step")
 status3 = reader3.ReadFile(r"ramie3.step")
+status4 = reader4.ReadFile(r"ramie4.step")
+status5 = reader5.ReadFile(r"ramie5.step")
+status6 = reader6.ReadFile(r"ramie6.step")
 
 # --- Funkcja do wyśrodkowania modelu ---
 def center_shape(shape):
@@ -39,15 +47,31 @@ def center_shape(shape):
     return transformer.Shape()
 
 # --- Sprawdzenie wczytania STEP ---
-if status1 == IFSelect_RetDone and status2 == IFSelect_RetDone and status3 == IFSelect_RetDone:
+if (status0 == IFSelect_RetDone and status1 == IFSelect_RetDone and
+    status2 == IFSelect_RetDone and status3 == IFSelect_RetDone and
+    status4 == IFSelect_RetDone and status5 == IFSelect_RetDone and
+    status6 == IFSelect_RetDone):
+    # Transfer i center dla wszystkich modeli
+    reader0.TransferRoots()
+    shape0 = center_shape(reader0.Shape())  # podstawa
+
     reader1.TransferRoots()
-    shape1 = center_shape(reader1.Shape())  # Wyśrodkowanie
+    shape1 = center_shape(reader1.Shape())  # ramie1
     
     reader2.TransferRoots()
-    shape2 = center_shape(reader2.Shape())
+    shape2 = center_shape(reader2.Shape())  # ramie2
     
     reader3.TransferRoots()
-    shape3 = center_shape(reader3.Shape())
+    shape3 = center_shape(reader3.Shape())  # ramie3
+
+    reader4.TransferRoots()
+    shape4 = center_shape(reader4.Shape())  # ramie4
+
+    reader5.TransferRoots()
+    shape5 = center_shape(reader5.Shape())  # ramie5
+
+    reader6.TransferRoots()
+    shape6 = center_shape(reader6.Shape())  # ramie6
 
     # --- Obrót pierwszego modelu ---
     dx, dy, dz = 0, 100, 0
@@ -61,10 +85,15 @@ if status1 == IFSelect_RetDone and status2 == IFSelect_RetDone and status3 == IF
     rotated_shape1 = BRepBuilderAPI_Transform(moved_shape1, rotation, True).Shape()
 
     # --- Wyświetlenie modeli ---
-    display.DisplayShape(shape1, color=rgb_color(0.4,0.6,1))       # oryginał
-    display.DisplayShape(rotated_shape1, color=rgb_color(0.4,1,0.3)) # obrócony
-    display.DisplayShape(shape2, color=rgb_color(0.4,0.6,1))
-    display.DisplayShape(shape3, color=rgb_color(0.4,0.6,1))
+    # Wyświetlenie modeli: podstawa + ramiona
+    display.DisplayShape(shape0, color=rgb_color(0.6,0.6,0.6))       # podstawa
+    display.DisplayShape(shape1, color=rgb_color(0.4,0.6,1))         # ramie1 (oryginał)
+    display.DisplayShape(rotated_shape1, color=rgb_color(0.4,1,0.3)) # ramie1 (obrócony)
+    display.DisplayShape(shape2, color=rgb_color(0.4,0.6,1))         # ramie2
+    display.DisplayShape(shape3, color=rgb_color(0.4,0.6,1))         # ramie3
+    display.DisplayShape(shape4, color=rgb_color(0.6,0.8,0.4))         # ramie4
+    display.DisplayShape(shape5, color=rgb_color(0.6,0.5,0.9))         # ramie5
+    display.DisplayShape(shape6, color=rgb_color(0.9,0.6,0.4))         # ramie6
 
     # --- Wyświetlenie punktu z kulką ---
     marker_radius = 10.0
@@ -74,8 +103,11 @@ if status1 == IFSelect_RetDone and status2 == IFSelect_RetDone and status3 == IF
     display.View_Iso()
     display.FitAll()
     display.View.Update()
-    print("✅ Displayed centered and rotated models.")
+    print("✅ Displayed centered and rotated models (podstawa + ramie1-6).")
 else:
     print("❌ Failed to read STEP file.")
+
+# --- Ustawienia widoku ---
+display.hide_triedron()  # pokazuje układ osi
 
 start_display()
