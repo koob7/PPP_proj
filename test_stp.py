@@ -50,11 +50,15 @@ if status1 == IFSelect_RetDone and status2 == IFSelect_RetDone and status3 == IF
     shape3 = center_shape(reader3.Shape())
 
     # --- Obrót pierwszego modelu ---
-    origin = gp_Pnt(0, 0, 0)
+    dx, dy, dz = 0, 100, 0
+    trsf = gp_Trsf()
+    trsf.SetTranslation(gp_Vec(dx, dy, dz))
+    moved_shape1 = BRepBuilderAPI_Transform(shape1, trsf, True).Shape()
+    origin = gp_Pnt(0, 100, 0)
     axis = gp_Ax1(origin, gp_Dir(0, 0, 1))
     rotation = gp_Trsf()
-    rotation.SetRotation(axis, math.radians(135))
-    rotated_shape1 = BRepBuilderAPI_Transform(shape1, rotation, True).Shape()
+    rotation.SetRotation(axis, math.radians(90))
+    rotated_shape1 = BRepBuilderAPI_Transform(moved_shape1, rotation, True).Shape()
 
     # --- Wyświetlenie modeli ---
     display.DisplayShape(shape1, color=rgb_color(0.4,0.6,1))       # oryginał
