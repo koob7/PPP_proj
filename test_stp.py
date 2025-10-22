@@ -41,6 +41,7 @@ transforms_table = [
     { 'translate': (0, 0, 0), 'rotations': [ { 'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0 }, { 'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0 } ] },
 ]
 
+hide_table = { True, True, True, True, True, True, True}
 
 def load_and_center(file_list, transforms=None):
     """Wczyta listę plików STEP, przetransferuje i wycentruje każdy kształt.
@@ -124,13 +125,20 @@ else:
 
 
     # --- Wyświetlenie modeli ---
-    display.DisplayShape(shape0, color=rgb_color(0.6,0.6,0.6))       # podstawa
-    display.DisplayShape(shape1, color=rgb_color(0.4,0.6,1))         # ramie1
-    display.DisplayShape(shape2, color=rgb_color(0.4,0.6,1))         # ramie2
-    display.DisplayShape(shape3, color=rgb_color(0.4,0.6,1))         # ramie3
-    display.DisplayShape(shape4, color=rgb_color(0.6,0.8,0.4))       # ramie4
-    display.DisplayShape(shape5, color=rgb_color(0.6,0.5,0.9))       # ramie5
-    display.DisplayShape(shape6, color=rgb_color(0.9,0.6,0.4))       # ramie6
+    if hide_table[0] == True:
+        display.DisplayShape(shape0, color=rgb_color(0.6,0.6,0.6))       # podstawa
+    if hide_table[1] == True:
+        display.DisplayShape(shape1, color=rgb_color(0.4,0.6,1))         # ramie1
+    if hide_table[2] == True:
+        display.DisplayShape(shape2, color=rgb_color(0.4,0.6,1))         # ramie2
+    if hide_table[3] == True:
+        display.DisplayShape(shape3, color=rgb_color(0.4,0.6,1))         # ramie3
+    if hide_table[4] == True:
+        display.DisplayShape(shape4, color=rgb_color(0.6,0.8,0.4))       # ramie4
+    if hide_table[5] == True:
+        display.DisplayShape(shape5, color=rgb_color(0.6,0.5,0.9))       # ramie5
+    if hide_table[6] == True:
+        display.DisplayShape(shape6, color=rgb_color(0.9,0.6,0.4))       # ramie6
 
     # --- Wyświetlenie punktu z kulką ---
     marker_radius = 10.0
