@@ -194,11 +194,19 @@ frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
 ttk.Label(frame, text="Kąt obrotu:").grid(row=0, column=0, sticky=tk.W)
 
+
 rotation_slider = ttk.Scale(
-    frame, from_=0, to=180, orient=tk.HORIZONTAL, command=on_slider_change
+    frame, from_=0, to=360, orient=tk.HORIZONTAL
 )
 rotation_slider.grid(row=1, column=0, sticky=(tk.W, tk.E))
 rotation_slider.set(0)
+
+# Callback wywoływany tylko po puszczeniu suwaka
+def on_slider_release(event):
+    value = rotation_slider.get()
+    on_slider_change(value)
+
+rotation_slider.bind("<ButtonRelease-1>", on_slider_release)
 
 root.mainloop()
 start_display()
