@@ -233,6 +233,8 @@ viewer = qtViewer3d(window)
 layout.addWidget(viewer)
 display = viewer._display
 
+display.set_bg_gradient_color(rgb_color(0.68, 0.85, 0.90), rgb_color(0.95, 0.97, 1.0),4 )
+
 
 # --- Wczytanie i przetworzenie modeli ---
 shapes, statuses = deserialize_shapes(filenames)
