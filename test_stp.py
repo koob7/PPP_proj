@@ -114,9 +114,10 @@ def redraw_scene(display, shapes, colors, marker_radius=10.0):
 
 
 
-    # Rysuj kształty
+    # Rysuj kształty (pomijając ukryte według draw_table)
     for i, shape in enumerate(shapes):
-        display.DisplayShape(shape, color=colors[i])
+        if i < len(draw_table) and draw_table[i]:
+            display.DisplayShape(shape, color=colors[i])
 
     # Dodaj marker w środku sceny
     marker = BRepPrimAPI_MakeSphere(gp_Pnt(0, 0, 0), marker_radius).Shape()
@@ -156,7 +157,7 @@ shape_colors = [
     rgb_color(0.9, 0.6, 0.4),
 ]
 
-hide_table = [False, False, True, False, False, False, False]
+draw_table = [False, False, True, False, False, False, False]
 
 
 # --- Wczytanie i przetworzenie modeli ---
