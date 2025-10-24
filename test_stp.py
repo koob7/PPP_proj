@@ -11,6 +11,11 @@ from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
 import math
 import tkinter as tk
 from tkinter import ttk
+import time
+import pickle
+import os
+import hashlib
+
 
 
 # --- Zmienne globalne ---
@@ -65,6 +70,61 @@ def load_shapes(file_list):
     return shapes, statuses
 
 
+def get_cache_filename(file_list):
+    """Generuje nazwę pliku cache na podstawie listy plików."""
+    # Tworzymy hash z nazw plików i ich czasów modyfikacji
+    hash_input = ""
+    for f in file_list:
+        if os.path.exists(f):
+            mtime = os.path.getmtime(f)
+            hash_input += f"{f}_{mtime}_"
+    
+    file_hash = hashlib.md5(hash_input.encode()).hexdigest()
+    return f"shapes_cache_{file_hash}.pkl"
+
+
+def deserialize_shapes(file_list, cache_dir=".cache"):
+    """
+    Ładuje kształty z cache lub z plików STEP.
+    Cache jest automatycznie unieważniany gdy pliki się zmienią.
+    """
+    # Utwórz katalog cache jeśli nie istnieje
+    if not os.path.exists(cache_dir):
+        os.makedirs(cache_dir)
+    
+    cache_file = os.path.join(cache_dir, get_cache_filename(file_list))
+    
+    # Sprawdź czy istnieje cache
+    if os.path.exists(cache_file):
+        print(f"📦 Ładowanie z cache: {cache_file}")
+        try:
+            with open(cache_file, 'rb') as f:
+                cached_data = pickle.load(f)
+            print(f"✅ Załadowano {len(cached_data['shapes'])} kształtów z cache")
+           
+        except Exception as e:
+            print(f"⚠️ Błąd odczytu cache: {e}, ładowanie z plików STEP...")
+
+    return cached_data['shapes'], cached_data['statuses']
+
+
+def serialize_shapes(shapes, file_list, cache_dir=".cache"):
+    """Zapisuje kształty do pliku cache."""
+    if not os.path.exists(cache_dir):
+        os.makedirs(cache_dir)
+    
+    cache_file = os.path.join(cache_dir, get_cache_filename(file_list))
+    data = {
+        'shapes': shapes,
+        'statuses': [IFSelect_RetDone] * len(shapes)
+    }
+    try:
+        with open(cache_file, 'wb') as f:
+            pickle.dump(data, f)
+        print(f"💾 Zapisano {len(shapes)} kształtów do cache: {cache_file}")
+    except Exception as e:
+        print(f"⚠️ Błąd zapisu cache: {e}")
+
 def apply_transform_to_shape(shape, transform):
     """
     Zastosuj translację i obrót do kształtu.
@@ -104,29 +164,26 @@ def apply_transform_to_shape(shape, transform):
 
 
 def redraw_scene(display, shapes, colors, marker_radius=10.0):
-
-
+    
     if display is None:
         print("❌ Display is None")
         return
 
     display.EraseAll()
 
-
-
-    # Rysuj kształty (pomijając ukryte według draw_table)
     for i, shape in enumerate(shapes):
         if i < len(draw_table) and draw_table[i]:
+            t_shape_start = time.perf_counter()
             display.DisplayShape(shape, color=colors[i])
 
-    # Dodaj marker w środku sceny
     marker = BRepPrimAPI_MakeSphere(gp_Pnt(0, 0, 0), marker_radius).Shape()
     display.DisplayShape(marker, color=rgb_color(1.0, 0.0, 0.0))
 
-    # Odśwież widok
     display.View_Iso()
     display.FitAll()
     display.View.Update()
+
+    
     current_display = display
 
 
@@ -160,17 +217,32 @@ shape_colors = [
 draw_table = [False, False, True, False, False, False, False]
 
 
-# --- Wczytanie i przetworzenie modeli ---
-shapes, statuses = load_shapes(filenames)
-if shapes is None:
-    print("❌ Nie udało się wczytać plików STEP:", statuses)
-    exit(1)
+start_t = time.perf_counter()
 
-simplified_shapes = simplify_shapes(shapes)
-centerd_shapes = center_shapes(simplified_shapes)
-displayed_shapes = centerd_shapes
+# --- Wczytanie i przetworzenie modeli ---
+shapes, statuses = deserialize_shapes(filenames)
+
+if shapes is not None:
+    centerd_shapes = shapes
+    displayed_shapes = centerd_shapes
+
+
+else:
+    shapes, statuses = load_shapes(filenames)
+    if shapes is None:
+        print("❌ Nie udało się wczytać plików STEP:", statuses)
+        exit(1)
+
+    simplified_shapes = simplify_shapes(shapes)
+    centerd_shapes = center_shapes(simplified_shapes)
+    serialize_shapes(centerd_shapes, filenames)
+
+    displayed_shapes = centerd_shapes
+
 # --- Rysowanie początkowe za pomocą funkcji ---
 redraw_scene(display, displayed_shapes, shape_colors)
+
+
 
 
 
