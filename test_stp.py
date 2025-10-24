@@ -101,11 +101,13 @@ def deserialize_shapes(file_list, cache_dir=".cache"):
             with open(cache_file, 'rb') as f:
                 cached_data = pickle.load(f)
             print(f"✅ Załadowano {len(cached_data['shapes'])} kształtów z cache")
-           
+            return cached_data['shapes'], cached_data['statuses']
         except Exception as e:
             print(f"⚠️ Błąd odczytu cache: {e}, ładowanie z plików STEP...")
-
-    return cached_data['shapes'], cached_data['statuses']
+    
+    # Jeśli nie ma cache lub błąd odczytu, zwróć None
+    print(f"⚠️ Brak cache, musisz najpierw załadować i zapisać kształty")
+    return None, None
 
 
 def serialize_shapes(shapes, file_list, cache_dir=".cache"):
