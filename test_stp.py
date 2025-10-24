@@ -283,5 +283,16 @@ def on_slider_release(event):
 
 rotation_slider.bind("<ButtonRelease-1>", on_slider_release)
 
-root.mainloop()
+
+def show_log():
+    print("losowy długi log który ma zająć dużo miejsca w konsoli żeby sprawdzić jak to wygląda w praktyce i czy wszystko działa poprawnie przy dużej ilości tekstu wyjściowego")
+
+
+#działa tylko jeśli start_display jest wywołane przed root.mainloop()
+#!!!!!!!!!!!!!!!!!!!!!
+add_menu('testowe menu')
+add_function_to_menu('testowe menu', show_log)
+
 start_display()
+root.mainloop()
+
