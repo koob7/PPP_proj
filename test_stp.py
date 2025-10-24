@@ -1,3 +1,8 @@
+from OCC.Display.backend import load_backend
+load_backend('pyqt5')
+
+from OCC.Display.qtDisplay import qtViewer3d
+from PyQt5.QtWidgets import QApplication, QSlider, QWidget, QVBoxLayout
 from OCC.Core.STEPControl import STEPControl_Reader
 from OCC.Display.SimpleGui import init_display
 from OCC.Core.IFSelect import IFSelect_RetDone
@@ -15,6 +20,8 @@ import time
 import pickle
 import os
 import hashlib
+import sys, math
+
 
 
 
@@ -189,9 +196,6 @@ def redraw_scene(display, shapes, colors, marker_radius=10.0):
     current_display = display
 
 
-# --- Inicjalizacja wyświetlania ---
-display, start_display, add_menu, add_function_to_menu = init_display()
-
 filenames = [
     "ramie0.step", "ramie1.step", "ramie2.step",
     "ramie3.step", "ramie4.step", "ramie5.step", "ramie6.step",
@@ -218,8 +222,17 @@ shape_colors = [
 
 draw_table = [False, False, True, False, False, False, False]
 
+# --- Aplikacja PyQt ---
+app = QApplication(sys.argv)
+window = QWidget()
+window.setWindowTitle("Wyświetlacz STEP z obracaniem")
+window.resize(1024, 768)  # Ustawienie domyślnego rozmiaru okna
+layout = QVBoxLayout(window)
 
-start_t = time.perf_counter()
+viewer = qtViewer3d(window)
+layout.addWidget(viewer)
+display = viewer._display
+
 
 # --- Wczytanie i przetworzenie modeli ---
 shapes, statuses = deserialize_shapes(filenames)
@@ -245,54 +258,30 @@ else:
 redraw_scene(display, displayed_shapes, shape_colors)
 
 
-
-
-
-# --- Funkcja obsługi suwaka ---
-def on_slider_change(angle):
-    """Callback zmiany kąta z suwaka."""
+# --- Funkcja do obracania bryły ---
+def rotate_shape(angle_deg):
+    """Callback zmiany kąta z suwaka - wywoływany po puszczeniu."""
     idx = 2  # np. 3. ramię
-    transforms_table[idx]['rotations'][0]['angle_deg'] = float(angle)
+    transforms_table[idx]['rotations'][0]['angle_deg'] = float(angle_deg)
     # Zaktualizuj transformację tylko jednego kształtu
     displayed_shapes[idx] = apply_transform_to_shape(centerd_shapes[idx], transforms_table[idx])
     # Ponownie narysuj całą scenę tą samą funkcją
     redraw_scene(display, displayed_shapes, shape_colors)
 
+# --- Slider do obracania ---
+slider = QSlider()
+slider.setOrientation(1)  # 1 = poziomy
+slider.setMinimum(0)
+slider.setMaximum(360)
+slider.setValue(0)
 
-# --- GUI Tkinter ---
-root = tk.Tk()
-root.title("Kontrola obrotu ramienia")
-root.geometry("300x100")
-
-frame = ttk.Frame(root, padding="10")
-frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-
-ttk.Label(frame, text="Kąt obrotu:").grid(row=0, column=0, sticky=tk.W)
-
-
-rotation_slider = ttk.Scale(
-    frame, from_=0, to=360, orient=tk.HORIZONTAL
-)
-rotation_slider.grid(row=1, column=0, sticky=(tk.W, tk.E))
-rotation_slider.set(0)
-
-# Callback wywoływany tylko po puszczeniu suwaka
-def on_slider_release(event):
-    value = rotation_slider.get()
-    on_slider_change(value)
-
-rotation_slider.bind("<ButtonRelease-1>", on_slider_release)
+# Callback wywoływany tylko po puszczeniu suwaka (sliderReleased)
+slider.sliderReleased.connect(lambda: rotate_shape(slider.value()))
+layout.addWidget(slider)
 
 
-def show_log():
-    print("losowy długi log który ma zająć dużo miejsca w konsoli żeby sprawdzić jak to wygląda w praktyce i czy wszystko działa poprawnie przy dużej ilości tekstu wyjściowego")
 
 
-#działa tylko jeśli start_display jest wywołane przed root.mainloop()
-#!!!!!!!!!!!!!!!!!!!!!
-add_menu('testowe menu')
-add_function_to_menu('testowe menu', show_log)
-
-start_display()
-root.mainloop()
+window.show()
+sys.exit(app.exec_())
 
