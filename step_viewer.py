@@ -17,23 +17,23 @@ from geometry_helper import apply_transform_to_shape, apply_default_transforms
 # PyQt5
 from PyQt5.QtWidgets import (
     QApplication,
-    QSlider,
     QWidget,
     QVBoxLayout,
     QSplitter,
     QTabWidget,
-    QComboBox,
-    QLabel,
-    QHBoxLayout,
-    QCheckBox,
-    QPushButton,
 )
 from PyQt5.QtCore import Qt
 
 from logger import logger
-from my_widget import ResettableSlider
 from shape import StepLoader
 from my_types import TransformType
+from tabs import (
+    ManualControlTab,
+    VisibilityTab,
+    AxisControlTab,
+    ForwardKinematicsTab,
+    InverseKinematicsTab,
+)
 
 class StepViewer:
     def __init__(
@@ -78,104 +78,28 @@ class StepViewer:
         # zakładki sterowania
         tabs = QTabWidget()
 
-        self.tab1 = QWidget()
-        self.tab1_layout = QVBoxLayout(self.tab1)
-        # combobox do wyboru sterowanego shape'u
-        self.shape_selector = QComboBox()
-        for i, f in enumerate(self.filenames):
-            self.shape_selector.addItem(f"Shape {i} ({f.name})", i)
-        self.shape_selector.setCurrentIndex(self.current_shape_idx)
-        self.shape_selector.currentIndexChanged.connect(self._on_shape_selected)
-        self.tab1_layout.addWidget(self.shape_selector)
-
-        # translacje (z podpisami)
-        self.tab1_layout.addWidget(QLabel("Translacje (mm)"))
-        self.sliders_translate = {}
-        for axis in ["X", "Y", "Z"]:
-            row = QWidget()
-            row_layout = QHBoxLayout(row)
-            title_lbl = QLabel(f"{axis} [mm]")
-            val_lbl = QLabel("0")
-            slider = ResettableSlider(Qt.Horizontal, default_value=0)
-            slider.setMinimum(-600)
-            slider.setMaximum(600)
-            slider.setValue(0)
-            # Ticks for easier reading
-            slider.setTickPosition(QSlider.TicksBelow)
-            slider.setTickInterval(100) 
-            slider.setSingleStep(1)
-            slider.setPageStep(10)
-            slider.setObjectName(f"translate_{axis}")
-            slider.valueChanged.connect(lambda v, lab=val_lbl: lab.setText(str(int(v))))
-            slider.sliderReleased.connect(self._on_manual_slider_change)
-            row_layout.addWidget(title_lbl)
-            row_layout.addWidget(slider, 1)
-            row_layout.addWidget(val_lbl)
-            self.tab1_layout.addWidget(row)
-            self.sliders_translate[axis] = slider
-
-        # rotacje (z podpisami)
-        self.tab1_layout.addWidget(QLabel("Rotacje (°)"))
-        self.sliders_rotate = {}
-        for axis in ["X", "Y", "Z"]:
-            row = QWidget()
-            row_layout = QHBoxLayout(row)
-            title_lbl = QLabel(f"{axis} [°]")
-            val_lbl = QLabel("0")
-            slider = ResettableSlider(Qt.Horizontal, default_value=0)
-            slider.setMinimum(0)
-            slider.setMaximum(360)
-            slider.setValue(0)
-            # Ticks for easier reading
-            slider.setTickPosition(QSlider.TicksBelow)
-            slider.setTickInterval(30)
-            slider.setSingleStep(1)
-            slider.setPageStep(15)
-            slider.setObjectName(f"rotate_{axis}")
-            slider.valueChanged.connect(lambda v, lab=val_lbl: lab.setText(str(int(v))))
-            slider.sliderReleased.connect(self._on_manual_slider_change)
-            row_layout.addWidget(title_lbl)
-            row_layout.addWidget(slider, 1)
-            row_layout.addWidget(val_lbl)
-            self.tab1_layout.addWidget(row)
-            self.sliders_rotate[axis] = slider
-
-        tabs.addTab(self.tab1, "ruch testowy")
-        tabs.addTab(QWidget(), "sterowanie osiami")
-        tabs.addTab(QWidget(), "kinematyka prosta")
-        tabs.addTab(QWidget(), "kinematyka odwrotna")
-        # globalna zakładka widoczności elementów
-        visibility_tab = QWidget()
-        vlayout = QVBoxLayout(visibility_tab)
-        header_row = QWidget()
-        header_layout = QHBoxLayout(header_row)
-        header_layout.addWidget(QLabel("Widoczność elementów:"))
-        btn_all = QPushButton("Zaznacz wszystko")
-        btn_none = QPushButton("Odznacz wszystko")
-        btn_all.clicked.connect(lambda: self._set_all_visibility(True))
-        btn_none.clicked.connect(lambda: self._set_all_visibility(False))
-        header_layout.addWidget(btn_all)
-        header_layout.addWidget(btn_none)
-        header_layout.addStretch(1)
-        vlayout.addWidget(header_row)
-        # lista checkboxów
-        self.visibility_checkboxes = []
-
-        for i in range(len(self.filenames)):
-            name = None
-            try:
-                if self.filenames and i < len(self.filenames):
-                    name = self.filenames[i].name
-            except Exception:
-                name = None
-            text = f"{i}: {name}" if name else f"{i}"
-            cb = QCheckBox(text)
-            checked = bool(self.draw_table[i])
-            cb.setChecked(checked)
-            cb.stateChanged.connect(lambda state, idx=i: self._on_visibility_changed(idx, state))
-            vlayout.addWidget(cb)
-            self.visibility_checkboxes.append(cb)
-        tabs.addTab(visibility_tab, "widoczność elementów")
+        # Manual control tab
+        self.manual_tab = ManualControlTab(
+            filenames=self.filenames,
+            current_shape_idx=self.current_shape_idx,
+            on_slider_change=self._on_manual_slider_change,
+            on_shape_selected=self._on_shape_selected,
+        )
+        tabs.addTab(self.manual_tab, "ruch testowy")
+        
+        # Placeholder tabs
+        tabs.addTab(AxisControlTab(), "sterowanie osiami")
+        tabs.addTab(ForwardKinematicsTab(), "kinematyka prosta")
+        tabs.addTab(InverseKinematicsTab(), "kinematyka odwrotna")
+        
+        # Visibility tab
+        self.visibility_tab = VisibilityTab(
+            filenames=self.filenames,
+            draw_table=self.draw_table,
+            on_visibility_changed=self._on_visibility_changed,
+            on_set_all_visibility=self._set_all_visibility,
+        )
+        tabs.addTab(self.visibility_tab, "widoczność elementów")
         self.splitter.addWidget(tabs)
 
         # Ustaw domyślną wysokość viewer 3D na 600 px, reszta niech się dostosuje
@@ -251,19 +175,18 @@ class StepViewer:
     # UI callbacks
     # -------------------------
     def _on_manual_slider_change(self):
-        idx = self.current_shape_idx
+        idx = self.manual_tab.get_current_shape_index()
         if idx >= len(self.transforms_table):
             return
-        tr_x = self.sliders_translate["X"].value()
-        tr_y = self.sliders_translate["Y"].value()
-        tr_z = self.sliders_translate["Z"].value()
+        
+        tr_x, tr_y, tr_z = self.manual_tab.get_translation_values()
         self.transforms_table[idx]["translate"] = (tr_x, tr_y, tr_z)
-        rx = self.sliders_rotate["X"].value()
-        ry = self.sliders_rotate["Y"].value()
-        rz = self.sliders_rotate["Z"].value()
+        
+        rx, ry, rz = self.manual_tab.get_rotation_values()
         self.transforms_table[idx]["rotations"][0]["angle_deg"] = rz
         self.transforms_table[idx]["rotations"][1]["angle_deg"] = ry
         self.transforms_table[idx]["rotations"][2]["angle_deg"] = rx
+        
         self.displayed_shapes[idx] = apply_transform_to_shape(self.shapes[idx], self.transforms_table[idx])
         self.redraw_scene()
 
@@ -271,14 +194,16 @@ class StepViewer:
         self.current_shape_idx = index
         if index >= len(self.transforms_table):
             return
+        
         tr = self.transforms_table[index].get("translate", (0, 0, 0))
-        self.sliders_translate["X"].setValue(int(tr[0]))
-        self.sliders_translate["Y"].setValue(int(tr[1]))
-        self.sliders_translate["Z"].setValue(int(tr[2]))
+        self.manual_tab.set_translation_values(tr[0], tr[1], tr[2])
+        
         rotations = self.transforms_table[index]["rotations"]
-        self.sliders_rotate["Z"].setValue(int(rotations[0]["angle_deg"]))
-        self.sliders_rotate["Y"].setValue(int(rotations[1]["angle_deg"]))
-        self.sliders_rotate["X"].setValue(int(rotations[2]["angle_deg"]))
+        self.manual_tab.set_rotation_values(
+            rotations[2]["angle_deg"],  # X
+            rotations[1]["angle_deg"],  # Y
+            rotations[0]["angle_deg"],  # Z
+        )
 
     def _on_visibility_changed(self, idx: int, state: int) -> None:
         # aktualizacja widoczności i odrysowanie sceny
@@ -291,21 +216,20 @@ class StepViewer:
         self.redraw_scene()
 
     def _set_all_visibility(self, value: bool) -> None:
-        # ustawienie widoczności dla wszystkich elementów
-        count = len(self.visibility_checkboxes) if hasattr(self, 'visibility_checkboxes') else 0
-        if count == 0:
-            return
+        """Set visibility for all elements."""
+        count = len(self.filenames)
         if not self.draw_table or len(self.draw_table) < count:
             self.draw_table = (self.draw_table or []) + [False] * (count - len(self.draw_table or []))
+        
         for i in range(count):
             self.draw_table[i] = value
-            cb = self.visibility_checkboxes[i]
-            bs = cb.blockSignals(True)
-            try:
-                cb.setChecked(value)
-            finally:
-                cb.blockSignals(bs)
+        
+        self.visibility_tab.set_all_checkboxes(value)
         self.redraw_scene()
+    
+    def _sync_visibility_checkboxes(self):
+        """Sync visibility checkboxes with draw_table."""
+        self.visibility_tab.sync_checkboxes(self.draw_table)
 
     def _init_defaults(self):
         """Ustawienia domyślne (kolory, draw_table, transforms) zgodne z pierwotnym skryptem."""
