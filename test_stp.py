@@ -31,7 +31,9 @@ from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeSphere
 from OCC.Core.Bnd import Bnd_Box
 from OCC.Core.BRepBndLib import brepbndlib
 from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
-
+from OCC.Core.Aspect import Aspect_TOTP_RIGHT_LOWER
+from OCC.Core.Quantity import Quantity_Color, Quantity_NOC_BLACK
+from OCC.Core.V3d import V3d_WIREFRAME
 # PyQt5
 from PyQt5.QtWidgets import (
     QApplication,
@@ -47,6 +49,25 @@ from PyQt5.QtWidgets import (
     QPushButton,
 )
 from PyQt5.QtCore import Qt
+
+
+class ResettableSlider(QSlider):
+    """QSlider that resets to a default value on double-click and emits sliderReleased."""
+    def __init__(self, orientation, default_value=0, parent=None):
+        super().__init__(orientation, parent)
+        self._default_value = default_value
+
+    def mousePressEvent(self, event):
+        # Right-click resets to default and triggers the same path as releasing the slider
+        if event.button() == Qt.RightButton:
+            self.setValue(self._default_value)
+            try:
+                self.sliderReleased.emit()
+            except Exception:
+                pass
+            event.accept()
+            return
+        super().mousePressEvent(event)
 
 # Logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -95,6 +116,7 @@ class StepViewer:
         self.viewer = qtViewer3d(self.window)
         self.display = self.viewer._display
         self.display.set_bg_gradient_color(rgb_color(0.68, 0.85, 0.90), rgb_color(0.95, 0.97, 1.0), 4)
+        self.display.View.TriedronDisplay(Aspect_TOTP_RIGHT_LOWER, Quantity_Color(Quantity_NOC_BLACK), 0.25, V3d_WIREFRAME)
         self.splitter.addWidget(self.viewer)
 
         # zakładki sterowania
@@ -118,10 +140,15 @@ class StepViewer:
             row_layout = QHBoxLayout(row)
             title_lbl = QLabel(f"{axis} [mm]")
             val_lbl = QLabel("0")
-            slider = QSlider(Qt.Horizontal)
+            slider = ResettableSlider(Qt.Horizontal, default_value=0)
             slider.setMinimum(-600)
             slider.setMaximum(600)
             slider.setValue(0)
+            # Ticks for easier reading
+            slider.setTickPosition(QSlider.TicksBelow)
+            slider.setTickInterval(100) 
+            slider.setSingleStep(1)
+            slider.setPageStep(10)
             slider.setObjectName(f"translate_{axis}")
             slider.valueChanged.connect(lambda v, lab=val_lbl: lab.setText(str(int(v))))
             slider.sliderReleased.connect(self._on_manual_slider_change)
@@ -139,10 +166,15 @@ class StepViewer:
             row_layout = QHBoxLayout(row)
             title_lbl = QLabel(f"{axis} [°]")
             val_lbl = QLabel("0")
-            slider = QSlider(Qt.Horizontal)
+            slider = ResettableSlider(Qt.Horizontal, default_value=0)
             slider.setMinimum(0)
             slider.setMaximum(360)
             slider.setValue(0)
+            # Ticks for easier reading
+            slider.setTickPosition(QSlider.TicksBelow)
+            slider.setTickInterval(30)
+            slider.setSingleStep(1)
+            slider.setPageStep(15)
             slider.setObjectName(f"rotate_{axis}")
             slider.valueChanged.connect(lambda v, lab=val_lbl: lab.setText(str(int(v))))
             slider.sliderReleased.connect(self._on_manual_slider_change)
