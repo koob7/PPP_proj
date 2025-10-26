@@ -72,6 +72,7 @@ class StepViewer:
         self.raw_shapes: Optional[List] = None       # shapes as wczytane
         self.statuses: Optional[List] = None
         self.displayed_shapes: Optional[List] = None
+        self.default_transforms: List[TransformType] = []
         self.transforms_table: List[TransformType] = []
         self.shape_colors: List = []
         self.draw_table: List[bool] = []
@@ -508,7 +509,7 @@ class StepViewer:
         self.draw_table = [False, False, True, False, False, False, False]
 
         # domyślne transforms (pusta translacja + trzy rotacje: Z, Y, X)
-        self.transforms_table = [
+        self.default_transforms = [
             {'translate': (0,0,0), 'rotations': [
                 {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0},  # Z
                 {'origin': (0,0,0), 'axis': (0,1,0), 'angle_deg': 0},  # Y
@@ -545,6 +546,8 @@ class StepViewer:
                 {'origin': (0,0,0), 'axis': (1,0,0), 'angle_deg': 0},
             ]},
         ]
+
+        self.transforms_table = self.default_transforms
 
     # -------------------------
     # Run
