@@ -1,2 +1,3 @@
 # Cache folder - zawiera serializowane kształty
 .cache/
+__pycache__/
