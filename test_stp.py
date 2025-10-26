@@ -33,7 +33,7 @@ from OCC.Core.BRepBndLib import brepbndlib
 from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
 
 # PyQt5
-from PyQt5.QtWidgets import QApplication, QSlider, QWidget, QVBoxLayout
+from PyQt5.QtWidgets import QApplication, QSlider, QWidget, QVBoxLayout, QSplitter, QTabWidget
 from PyQt5.QtCore import Qt
 
 # Logging
@@ -69,19 +69,38 @@ class StepViewer:
         self.window = QWidget()
         self.window.setWindowTitle("Wyświetlacz STEP z obracaniem (refactor)")
         self.window.resize(1024, 768)
-        self.layout = QVBoxLayout(self.window)
+
+        self.main_layout = QVBoxLayout(self.window)
+        self.splitter = QSplitter(Qt.Vertical)
+
+        # viewer 3D
         self.viewer = qtViewer3d(self.window)
-        self.layout.addWidget(self.viewer)
         self.display = self.viewer._display
         self.display.set_bg_gradient_color(rgb_color(0.68, 0.85, 0.90), rgb_color(0.95, 0.97, 1.0), 4)
+        self.splitter.addWidget(self.viewer)
 
-        # UI: slider
+        # zakładki sterowania
+        tabs = QTabWidget()
+
+        self.tab1 = QWidget()
+        self.tab1_layout = QVBoxLayout(self.tab1)
         self.slider = QSlider(Qt.Horizontal)
         self.slider.setMinimum(0)
         self.slider.setMaximum(360)
         self.slider.setValue(0)
         self.slider.sliderReleased.connect(self._on_slider_released)
-        self.layout.addWidget(self.slider)
+        self.tab1_layout.addWidget(self.slider)
+
+        tabs.addTab(self.tab1, "sterowanie manualne")
+        tabs.addTab(QWidget(), "kinematyka prosta")
+        tabs.addTab(QWidget(), "Zkinematyka odwrotna")
+        self.splitter.addWidget(tabs)
+
+        # ustaw proporcje (górna 70%, dolna 30%)
+        self.splitter.setStretchFactor(0, 7)
+        self.splitter.setStretchFactor(1, 3)
+
+        self.main_layout.addWidget(self.splitter)
 
         # init defaults
         self._init_defaults()
