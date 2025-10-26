@@ -1,289 +1,378 @@
+#!/usr/bin/env python3
+# coding: utf-8
+"""
+Refaktoryzowany viewer STEP (PyQt5 + pythonOCC).
+- Klasa StepViewer enkapsuluje logikę aplikacji.
+- Cache plików STEP w katalogu .cache (nazwa oparta na hash'ach nazw i mtime).
+- Metody: load (automatycznie korzysta z cache jeśli dostępne), simplify, center, apply transforms, redraw.
+"""
+
+from __future__ import annotations
+import logging
+import os
+import pickle
+import hashlib
+import math
+import time
+from pathlib import Path
+from typing import List, Optional, Tuple, Dict, Any
+
+# pythonOCC / OCC imports
 from OCC.Display.backend import load_backend
-load_backend('pyqt5')
+load_backend("pyqt5")
 
 from OCC.Display.qtDisplay import qtViewer3d
-from PyQt5.QtWidgets import QApplication, QSlider, QWidget, QVBoxLayout
+from OCC.Display.OCCViewer import rgb_color
 from OCC.Core.STEPControl import STEPControl_Reader
-from OCC.Display.SimpleGui import init_display
 from OCC.Core.IFSelect import IFSelect_RetDone
 from OCC.Core.gp import gp_Pnt, gp_Dir, gp_Ax1, gp_Trsf, gp_Vec
 from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Transform
 from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeSphere
-from OCC.Display.OCCViewer import rgb_color
 from OCC.Core.Bnd import Bnd_Box
 from OCC.Core.BRepBndLib import brepbndlib
 from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
-import math
-import tkinter as tk
-from tkinter import ttk
-import time
-import pickle
-import os
-import hashlib
-import sys, math
+
+# PyQt5
+from PyQt5.QtWidgets import QApplication, QSlider, QWidget, QVBoxLayout
+from PyQt5.QtCore import Qt
+
+# Logging
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+logger = logging.getLogger(__name__)
 
 
+TransformType = Dict[str, Any]  # {'translate': (x,y,z), 'rotations': [{'axis': (x,y,z), 'angle_deg': float}, ...]}
 
 
-# --- Zmienne globalne ---
-current_shapes = None
-current_display = None
-simplified_shapes = None
-displayed_shapes = None
-transforms_table = None
+class StepViewer:
+    def __init__(
+        self,
+        filenames: List[str],
+        cache_dir: str = ".cache",
+        marker_radius: float = 10.0,
+    ):
+        self.filenames = [Path(f) for f in filenames]
+        self.cache_dir = Path(cache_dir)
+        self.marker_radius = marker_radius
 
+        # scene state
+        self.shapes: Optional[List] = None           # shapes centered & simplified (used for display)
+        self.raw_shapes: Optional[List] = None       # shapes as wczytane
+        self.statuses: Optional[List] = None
+        self.displayed_shapes: Optional[List] = None
+        self.transforms_table: List[TransformType] = []
+        self.shape_colors: List = []
+        self.draw_table: List[bool] = []
 
-# --- Funkcje pomocnicze ---
-def simplify_shapes(shapes, linear_deflection=1.0, angular_deflection=0.8):
-    simplified = []
-    for shape in shapes:
-        mesh = BRepMesh_IncrementalMesh(shape, linear_deflection, True, angular_deflection)
-        mesh.Perform()
-        simplified.append(shape)
-    return simplified
+        # PyQt / OCC display
+        self.app = QApplication([])
+        self.window = QWidget()
+        self.window.setWindowTitle("Wyświetlacz STEP z obracaniem (refactor)")
+        self.window.resize(1024, 768)
+        self.layout = QVBoxLayout(self.window)
+        self.viewer = qtViewer3d(self.window)
+        self.layout.addWidget(self.viewer)
+        self.display = self.viewer._display
+        self.display.set_bg_gradient_color(rgb_color(0.68, 0.85, 0.90), rgb_color(0.95, 0.97, 1.0), 4)
 
+        # UI: slider
+        self.slider = QSlider(Qt.Horizontal)
+        self.slider.setMinimum(0)
+        self.slider.setMaximum(360)
+        self.slider.setValue(0)
+        self.slider.sliderReleased.connect(self._on_slider_released)
+        self.layout.addWidget(self.slider)
 
-def center_shapes(shapes):
-    centered = []
-    for shape in shapes:
-        bbox = Bnd_Box()
-        brepbndlib.Add(shape, bbox)
-        xmin, ymin, zmin, xmax, ymax, zmax = bbox.Get()  # lub Get(xmin, ymin, zmin, xmax, ymax, zmax) w starszych wersjach
-        cx = (xmin + xmax) / 2
-        cy = (ymin + ymax) / 2
-        cz = (zmin + zmax) / 2
-        # przesuwamy tak, aby środek bounding box znalazł się w (0,0,0)
-        trsf = gp_Trsf()
-        trsf.SetTranslation(gp_Vec(-cx, -cy, -cz))
-        shp_centered = BRepBuilderAPI_Transform(shape, trsf, True).Shape()
-        centered.append(shp_centered)
-    return centered
+        # init defaults
+        self._init_defaults()
 
+    # -------------------------
+    # Cache helpers
+    # -------------------------
+    def _get_cache_key(self) -> str:
+        """Generuje hash na podstawie ścieżek plików + mtime (jeśli plik istnieje)."""
+        h = hashlib.md5()
+        for p in self.filenames:
+            if p.exists():
+                mtime = p.stat().st_mtime
+                h.update(f"{str(p.resolve())}:{mtime}".encode())
+            else:
+                h.update(f"{str(p.resolve())}:missing".encode())
+        return h.hexdigest()
 
+    def _get_cache_path(self) -> Path:
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        name = f"shapes_cache_{self._get_cache_key()}.pkl"
+        return self.cache_dir / name
 
-def load_shapes(file_list):
-    readers = []
-    statuses = []
-    for f in file_list:
-        rdr = STEPControl_Reader()
-        statuses.append(rdr.ReadFile(f))
-        readers.append(rdr)
-    if not all(s == IFSelect_RetDone for s in statuses):
-        return None, statuses
-    shapes = []
-    for rdr in readers:
-        rdr.TransferRoots()
-        shapes.append(rdr.Shape())
-    return shapes, statuses
-
-
-def get_cache_filename(file_list):
-    """Generuje nazwę pliku cache na podstawie listy plików."""
-    # Tworzymy hash z nazw plików i ich czasów modyfikacji
-    hash_input = ""
-    for f in file_list:
-        if os.path.exists(f):
-            mtime = os.path.getmtime(f)
-            hash_input += f"{f}_{mtime}_"
-    
-    file_hash = hashlib.md5(hash_input.encode()).hexdigest()
-    return f"shapes_cache_{file_hash}.pkl"
-
-
-def deserialize_shapes(file_list, cache_dir=".cache"):
-    """
-    Ładuje kształty z cache lub z plików STEP.
-    Cache jest automatycznie unieważniany gdy pliki się zmienią.
-    """
-    # Utwórz katalog cache jeśli nie istnieje
-    if not os.path.exists(cache_dir):
-        os.makedirs(cache_dir)
-    
-    cache_file = os.path.join(cache_dir, get_cache_filename(file_list))
-    
-    # Sprawdź czy istnieje cache
-    if os.path.exists(cache_file):
-        print(f"📦 Ładowanie z cache: {cache_file}")
+    def _load_cache(self) -> Optional[Tuple[List, List]]:
+        cache_path = self._get_cache_path()
+        if not cache_path.exists():
+            logger.info("Brak cache (%s).", cache_path)
+            return None
         try:
-            with open(cache_file, 'rb') as f:
-                cached_data = pickle.load(f)
-            print(f"✅ Załadowano {len(cached_data['shapes'])} kształtów z cache")
-            return cached_data['shapes'], cached_data['statuses']
+            logger.info("Ładowanie cache: %s", cache_path)
+            with cache_path.open("rb") as f:
+                data = pickle.load(f)
+            return data.get("shapes"), data.get("statuses")
         except Exception as e:
-            print(f"⚠️ Błąd odczytu cache: {e}, ładowanie z plików STEP...")
+            logger.warning("Błąd odczytu cache: %s — będzie wczytane z plików STEP.", e)
+            return None
+
+    def _save_cache(self, shapes: List, statuses: List) -> None:
+        cache_path = self._get_cache_path()
+        try:
+            with cache_path.open("wb") as f:
+                pickle.dump({"shapes": shapes, "statuses": statuses}, f)
+            logger.info("Zapisano cache: %s", cache_path)
+        except Exception as e:
+            logger.warning("Nie udało się zapisać cache: %s", e)
+
+    # -------------------------
+    # Loading STEP
+    # -------------------------
+    def _read_step_files(self) -> Tuple[Optional[List], List]:
+        """Wczytaj STEPy i zwróć (shapes, statuses)."""
+        readers = []
+        statuses = []
+        for p in self.filenames:
+            rdr = STEPControl_Reader()
+            status = rdr.ReadFile(str(p))
+            readers.append(rdr)
+            statuses.append(status)
+        # check statuses
+        if not all(s == IFSelect_RetDone for s in statuses):
+            logger.error("Jednen z plików nie został poprawnie wczytany: %s", statuses)
+            return None, statuses
+        shapes = []
+        for rdr in readers:
+            rdr.TransferRoots()
+            shapes.append(rdr.Shape())
+        return shapes, statuses
+
     
-    # Jeśli nie ma cache lub błąd odczytu, zwróć None
-    print(f"⚠️ Brak cache, musisz najpierw załadować i zapisać kształty")
-    return None, None
+
+    # -------------------------
+    # Geometry helpers
+    # -------------------------
+    @staticmethod
+    def simplify_shapes(shapes: List, linear_deflection: float = 1.0, angular_deflection: float = 0.8) -> List:
+        """Generuje meshe dla shape'ów (przy okazji zwraca oryginalne shapes)."""
+        simplified = []
+        for shp in shapes:
+            mesh = BRepMesh_IncrementalMesh(shp, linear_deflection, True, angular_deflection)
+            mesh.Perform()
+            simplified.append(shp)
+        return simplified
+
+    @staticmethod
+    def center_shapes(shapes: List) -> List:
+        """Przesuwa każdy shape tak, żeby środek jego bounding box znalazł się w (0,0,0)."""
+        centered = []
+        for shape in shapes:
+            bbox = Bnd_Box()
+            brepbndlib.Add(shape, bbox)
+            xmin, ymin, zmin, xmax, ymax, zmax = bbox.Get()
+            cx = (xmin + xmax) / 2.0
+            cy = (ymin + ymax) / 2.0
+            cz = (zmin + zmax) / 2.0
+            trsf = gp_Trsf()
+            trsf.SetTranslation(gp_Vec(-cx, -cy, -cz))
+            shp_centered = BRepBuilderAPI_Transform(shape, trsf, True).Shape()
+            centered.append(shp_centered)
+        return centered
 
 
-def serialize_shapes(shapes, file_list, cache_dir=".cache"):
-    """Zapisuje kształty do pliku cache."""
-    if not os.path.exists(cache_dir):
-        os.makedirs(cache_dir)
-    
-    cache_file = os.path.join(cache_dir, get_cache_filename(file_list))
-    data = {
-        'shapes': shapes,
-        'statuses': [IFSelect_RetDone] * len(shapes)
-    }
-    try:
-        with open(cache_file, 'wb') as f:
-            pickle.dump(data, f)
-        print(f"💾 Zapisano {len(shapes)} kształtów do cache: {cache_file}")
-    except Exception as e:
-        print(f"⚠️ Błąd zapisu cache: {e}")
+    @staticmethod
+    def apply_transform_to_shape(shape, transform: Optional[TransformType]):
+        """Zastosuj rotacje i translacje do kształtu. Rotacje są względem (0,0,0)."""
+        shp = shape
+        if not transform:
+            return shp
 
-def apply_transform_to_shape(shape, transform):
-    """
-    Zastosuj translację i obrót do kształtu.
-    Obrót zawsze względem środka układu współrzędnych (0,0,0)
-    """
-    shp = shape
-    if not transform:
+        rotations = transform.get("rotations", [])
+        for rot in rotations:
+            if not rot:
+                continue
+            axis = rot.get("axis")
+            angle = rot.get("angle_deg")
+            if axis and (angle is not None):
+                ax_pnt = gp_Pnt(0, 0, 0)
+                ax_dir = gp_Dir(*axis)
+                ax = gp_Ax1(ax_pnt, ax_dir)
+                rot_trsf = gp_Trsf()
+                rot_trsf.SetRotation(ax, math.radians(float(angle)))
+                shp = BRepBuilderAPI_Transform(shp, rot_trsf, True).Shape()
+
+        tr = transform.get("translate")
+        if tr:
+            vec = gp_Vec(*tr)
+            tr_trsf = gp_Trsf()
+            tr_trsf.SetTranslation(vec)
+            shp = BRepBuilderAPI_Transform(shp, tr_trsf, True).Shape()
+
         return shp
-
-    # Obrót wokół środka układu
-    rotations = transform.get('rotations', [])
-    for rot in rotations:
-        if not rot:
-            continue
-        axis = rot.get('axis')
-        angle = rot.get('angle_deg')
-        if axis and angle is not None:
-            ax_pnt = gp_Pnt(0, 0, 0)  # punkt obrotu: środek układu
-            ax_dir = gp_Dir(*axis)
-            ax = gp_Ax1(ax_pnt, ax_dir)
-            rot_trsf = gp_Trsf()
-            rot_trsf.SetRotation(ax, math.radians(angle))
-            shp = BRepBuilderAPI_Transform(shp, rot_trsf, True).Shape()
-
-    # Translacja (opcjonalna)
-    tr = transform.get('translate')
-    if tr:
-        vec = gp_Vec(*tr)
-        tr_trsf = gp_Trsf()
-        tr_trsf.SetTranslation(vec)
-        shp = BRepBuilderAPI_Transform(shp, tr_trsf, True).Shape()
-
-    return shp
-
-
-
-
-
-def redraw_scene(display, shapes, colors, marker_radius=10.0):
     
-    if display is None:
-        print("❌ Display is None")
-        return
+    @staticmethod   
+    def apply_default_transforms(shapes, transforms_table):
+        """
+        Zastosuj transformacje (rotacje i translacje) dla wszystkich shape'ów
+        zgodnie z istniejącą tabelą transforms_table, korzystając z funkcji
+        apply_transform_to_shape().
+        """
+        if not shapes:
+            print("⚠️ Brak shape'ów .")
+            return shapes
+        
+        if not transforms_table:
+            print("⚠️ Brak tabeli transformacji.")
+            return shapes
 
-    display.EraseAll()
-
-    for i, shape in enumerate(shapes):
-        if i < len(draw_table) and draw_table[i]:
-            t_shape_start = time.perf_counter()
-            display.DisplayShape(shape, color=colors[i])
-
-    marker = BRepPrimAPI_MakeSphere(gp_Pnt(0, 0, 0), marker_radius).Shape()
-    display.DisplayShape(marker, color=rgb_color(1.0, 0.0, 0.0))
-
-    display.View_Iso()
-    display.FitAll()
-    display.View.Update()
-
-    
-    current_display = display
+        if len(shapes)!= len(transforms_table):
+            print("⚠️ Liczba shape'ów i transformacji się nie zgadza.")
+            return shapes
 
 
-filenames = [
-    "ramie0.step", "ramie1.step", "ramie2.step",
-    "ramie3.step", "ramie4.step", "ramie5.step", "ramie6.step",
-]
+        transformed = []
+        for i, shape in enumerate(shapes):
+            new_shape = StepViewer.apply_transform_to_shape(shape, transforms_table[i])
+            transformed.append(new_shape)
 
-transforms_table = [ {'translate': (0,0,0), 'rotations': [{'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}, {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}]},
-                     {'translate': (0,0,0), 'rotations': [{'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}, {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}]},
-                     {'translate': (0,0,0), 'rotations': [{'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}, {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}]},
-                     {'translate': (0,0,0), 'rotations': [{'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}, {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}]},
-                     {'translate': (0,0,0), 'rotations': [{'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}, {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}]},
-                     {'translate': (0,0,0), 'rotations': [{'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}, {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}]},
-                     {'translate': (0,0,0), 'rotations': [{'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}, {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}]},
-]
+        print(f"✅ Zastosowano transformacje do {len(transformed)} brył.")
+        return transformed
 
-shape_colors = [
-    rgb_color(0.6, 0.6, 0.6),
-    rgb_color(0.4, 0.6, 1),
-    rgb_color(0.4, 0.6, 1),
-    rgb_color(0.4, 0.6, 1),
-    rgb_color(0.6, 0.8, 0.4),
-    rgb_color(0.6, 0.5, 0.9),
-    rgb_color(0.9, 0.6, 0.4),
-]
-
-draw_table = [False, False, True, False, False, False, False]
-
-# --- Aplikacja PyQt ---
-app = QApplication(sys.argv)
-window = QWidget()
-window.setWindowTitle("Wyświetlacz STEP z obracaniem")
-window.resize(1024, 768)  # Ustawienie domyślnego rozmiaru okna
-layout = QVBoxLayout(window)
-
-viewer = qtViewer3d(window)
-layout.addWidget(viewer)
-display = viewer._display
-
-display.set_bg_gradient_color(rgb_color(0.68, 0.85, 0.90), rgb_color(0.95, 0.97, 1.0),4 )
+    def load_shapes(self) -> bool:
+        """
+        Ładuje kształty: najpierw próbuje z cache, jeśli brak -> wczytuje z plików i zapisuje cache.
+        Zwraca True jeżeli kształty są poprawnie wczytane.
+        """
+        cached = self._load_cache()
+        if cached:
+            shapes, statuses = cached
+            self.shapes = shapes
+            self.statuses = statuses
+            logger.info("Załadowano shapes z cache.")
+        else:
+            shapes, statuses = self._read_step_files()
+            if shapes is None:
+                logger.error("Nie udało się wczytać plików STEP.")
+                return False
+            self.raw_shapes = shapes
+            self.statuses = statuses
+            # automatyczna dalsza obróbka: meshing (simplify) i centrowanie
+            self.simplified_shapes = self.simplify_shapes(self.raw_shapes)
+            self.shapes = self.center_shapes(self.simplified_shapes)
+            # zapis cache dla przyszłych uruchomień
+            self._save_cache(shapes, statuses)
 
 
-# --- Wczytanie i przetworzenie modeli ---
-shapes, statuses = deserialize_shapes(filenames)
-
-if shapes is not None:
-    centerd_shapes = shapes
-    displayed_shapes = centerd_shapes
-
-
-else:
-    shapes, statuses = load_shapes(filenames)
-    if shapes is None:
-        print("❌ Nie udało się wczytać plików STEP:", statuses)
-        exit(1)
-
-    simplified_shapes = simplify_shapes(shapes)
-    centerd_shapes = center_shapes(simplified_shapes)
-    serialize_shapes(centerd_shapes, filenames)
-
-    displayed_shapes = centerd_shapes
-
-# --- Rysowanie początkowe za pomocą funkcji ---
-redraw_scene(display, displayed_shapes, shape_colors)
-
-
-# --- Funkcja do obracania bryły ---
-def rotate_shape(angle_deg):
-    """Callback zmiany kąta z suwaka - wywoływany po puszczeniu."""
-    idx = 2  # np. 3. ramię
-    transforms_table[idx]['rotations'][0]['angle_deg'] = float(angle_deg)
-    # Zaktualizuj transformację tylko jednego kształtu
-    displayed_shapes[idx] = apply_transform_to_shape(centerd_shapes[idx], transforms_table[idx])
-    # Ponownie narysuj całą scenę tą samą funkcją
-    redraw_scene(display, displayed_shapes, shape_colors)
-
-# --- Slider do obracania ---
-slider = QSlider()
-slider.setOrientation(1)  # 1 = poziomy
-slider.setMinimum(0)
-slider.setMaximum(360)
-slider.setValue(0)
-
-# Callback wywoływany tylko po puszczeniu suwaka (sliderReleased)
-slider.sliderReleased.connect(lambda: rotate_shape(slider.value()))
-layout.addWidget(slider)
+        # domyślne displayed
+        self.displayed_shapes = self.apply_default_transforms(self.shapes, self.transforms_table)
+        logger.info("Shapes gotowe do wyświetlenia: %d", len(self.shapes))
+        return True
 
 
 
 
-window.show()
-sys.exit(app.exec_())
+    # -------------------------
+    # Drawing
+    # -------------------------
+    def redraw_scene(self) -> None:
+        """Wyczyść scenę i narysuj ponownie wszystkie kształty wraz z markerem."""
+        if self.display is None:
+            logger.error("Display niedostępny.")
+            return
+        if not self.displayed_shapes:
+            logger.warning("Brak shape'ów do wyświetlenia.")
+            return
 
+        self.display.EraseAll()
+        for i, shp in enumerate(self.displayed_shapes):
+            should_draw = self.draw_table[i] if i < len(self.draw_table) else True
+            if should_draw:
+                # czas rysowania (można mierzyć dla debugu)
+                t0 = time.perf_counter()
+                self.display.DisplayShape(shp, color=self.shape_colors[i])
+                t1 = time.perf_counter()
+                logger.debug("Rysowanie shape %d zajęło %.4f s", i, (t1 - t0))
+
+        # marker w (0,0,0)
+        marker = BRepPrimAPI_MakeSphere(gp_Pnt(0, 0, 0), self.marker_radius).Shape()
+        self.display.DisplayShape(marker, color=rgb_color(1.0, 0.0, 0.0))
+
+        self.display.View_Iso()
+        self.display.FitAll()
+        try:
+            self.display.View.Update()
+        except Exception:
+            # niektóre wersje mają inną metodę — ignore jeśli nie istnieje
+            pass
+
+    # -------------------------
+    # UI callbacks / helpers
+    # -------------------------
+    def _on_slider_released(self) -> None:
+        """Wywołanie po puszczeniu suwaka — aktualizuje kąt dla jednego elementu (idx=2)."""
+        angle = float(self.slider.value())
+        idx = 2  # zgodnie z Twoim oryginalnym kodem: 3. ramię (index 2)
+        # zabezpieczenie
+        if idx >= len(self.transforms_table):
+            logger.warning("Brak transform_tabel dla indeksu %d", idx)
+            return
+        self.transforms_table[idx]["rotations"][0]["angle_deg"] = angle
+        # zastosuj transform tylko do jednego shape'a, nie modyfikuj źródłowego centered shapes
+        self.displayed_shapes[idx] = self.apply_transform_to_shape(self.shapes[idx], self.transforms_table[idx])
+        self.redraw_scene()
+
+    def _init_defaults(self):
+        """Ustawienia domyślne (kolory, draw_table, transforms) zgodne z pierwotnym skryptem."""
+        # kolory (jeśli shapes będą mniejsze/większe, v-sized list)
+        logger.info("Inicjalizacja domyślnych ustawień viewer'a.")
+        self.shape_colors = [
+            rgb_color(0.6, 0.6, 0.6),
+            rgb_color(0.4, 0.6, 1),
+            rgb_color(0.4, 0.6, 1),
+            rgb_color(0.4, 0.6, 1),
+            rgb_color(0.6, 0.8, 0.4),
+            rgb_color(0.6, 0.5, 0.9),
+            rgb_color(0.9, 0.6, 0.4),
+        ]
+        # które elementy rysować (domyślnie: tylko index 2 jest True jak w Twoim przykładzie)
+        self.draw_table = [False, False, True, False, False, False, False]
+
+        # domyślne transforms (pusta translacja + dwie rotacje z kątem 0)
+        self.transforms_table = [ {'translate': (0,0,0), 'rotations': [{'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}, {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}]},
+                                  {'translate': (0,0,0), 'rotations': [{'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}, {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}]},
+                                  {'translate': (0,0,0), 'rotations': [{'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}, {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}]},
+                                  {'translate': (0,0,0), 'rotations': [{'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}, {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}]},
+                                  {'translate': (0,0,0), 'rotations': [{'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}, {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}]},
+                                  {'translate': (0,0,0), 'rotations': [{'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}, {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}]},
+                                  {'translate': (0,0,0), 'rotations': [{'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}, {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}]}, 
+                                ]
+
+    # -------------------------
+    # Run
+    # -------------------------
+    def run(self) -> None:
+        if not self.load_shapes():
+            logger.error("Koniec działania: nie udało się wczytać shapes.")
+            return
+        # pierwsze rysowanie
+        self.redraw_scene()
+        # pokaż okno i start event loop
+        self.window.show()
+        self.app.exec_()
+
+
+# -------------------------
+# Punkt wejścia
+# -------------------------
+if __name__ == "__main__":
+    # Przykładowa lista plików (podstawić rzeczywiste ścieżki)
+    filenames = [
+        "ramie0.step", "ramie1.step", "ramie2.step",
+        "ramie3.step", "ramie4.step", "ramie5.step", "ramie6.step",
+    ]
+
+    viewer = StepViewer(filenames=filenames, cache_dir=".cache", marker_radius=10.0)
+    viewer.run()
