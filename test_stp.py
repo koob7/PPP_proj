@@ -263,7 +263,7 @@ class StepViewer:
             self.simplified_shapes = self.simplify_shapes(self.raw_shapes)
             self.shapes = self.center_shapes(self.simplified_shapes)
             # zapis cache dla przyszłych uruchomień
-            self._save_cache(shapes, statuses)
+            self._save_cache(self.shapes, statuses)
 
 
         # domyślne displayed
@@ -340,15 +340,44 @@ class StepViewer:
         # które elementy rysować (domyślnie: tylko index 2 jest True jak w Twoim przykładzie)
         self.draw_table = [False, False, True, False, False, False, False]
 
-        # domyślne transforms (pusta translacja + dwie rotacje z kątem 0)
-        self.transforms_table = [ {'translate': (0,0,0), 'rotations': [{'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}, {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}]},
-                                  {'translate': (0,0,0), 'rotations': [{'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}, {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}]},
-                                  {'translate': (0,0,0), 'rotations': [{'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}, {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}]},
-                                  {'translate': (0,0,0), 'rotations': [{'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}, {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}]},
-                                  {'translate': (0,0,0), 'rotations': [{'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}, {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}]},
-                                  {'translate': (0,0,0), 'rotations': [{'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}, {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}]},
-                                  {'translate': (0,0,0), 'rotations': [{'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}, {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0}]}, 
-                                ]
+        # domyślne transforms (pusta translacja + trzy rotacje: Z, Y, X)
+        self.transforms_table = [
+            {'translate': (0,0,0), 'rotations': [
+                {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0},  # Z
+                {'origin': (0,0,0), 'axis': (0,1,0), 'angle_deg': 0},  # Y
+                {'origin': (0,0,0), 'axis': (1,0,0), 'angle_deg': 0},  # X
+            ]},
+            {'translate': (0,0,0), 'rotations': [
+                {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0},
+                {'origin': (0,0,0), 'axis': (0,1,0), 'angle_deg': 0},
+                {'origin': (0,0,0), 'axis': (1,0,0), 'angle_deg': 0},
+            ]},
+            {'translate': (0,0,0), 'rotations': [
+                {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0},
+                {'origin': (0,0,0), 'axis': (0,1,0), 'angle_deg': 0},
+                {'origin': (0,0,0), 'axis': (1,0,0), 'angle_deg': 0},
+            ]},
+            {'translate': (0,0,0), 'rotations': [
+                {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0},
+                {'origin': (0,0,0), 'axis': (0,1,0), 'angle_deg': 0},
+                {'origin': (0,0,0), 'axis': (1,0,0), 'angle_deg': 0},
+            ]},
+            {'translate': (0,0,0), 'rotations': [
+                {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0},
+                {'origin': (0,0,0), 'axis': (0,1,0), 'angle_deg': 0},
+                {'origin': (0,0,0), 'axis': (1,0,0), 'angle_deg': 0},
+            ]},
+            {'translate': (0,0,0), 'rotations': [
+                {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0},
+                {'origin': (0,0,0), 'axis': (0,1,0), 'angle_deg': 0},
+                {'origin': (0,0,0), 'axis': (1,0,0), 'angle_deg': 0},
+            ]},
+            {'translate': (0,0,0), 'rotations': [
+                {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0},
+                {'origin': (0,0,0), 'axis': (0,1,0), 'angle_deg': 0},
+                {'origin': (0,0,0), 'axis': (1,0,0), 'angle_deg': 0},
+            ]},
+        ]
 
     # -------------------------
     # Run
