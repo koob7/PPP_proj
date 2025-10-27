@@ -17,13 +17,19 @@ class StepLoader:
         self.shapes: Optional[List] = None
         self.statuses: List = []
 
-    def _read_step_files(self) -> Tuple[Optional[List], List]:
-        """Wczytaj pliki STEP i zwróć (shapes, statuses)."""
+    def read_step_files(self) -> Tuple[Optional[List], List]:
+        """Wczytaj pliki STEP z podfolderu 'shapes' (jeśli potrzeba) i zwróć (shapes, statuses)."""
         readers = []
         statuses = []
+        shapes_dir = Path("shapes")
         for p in self.filenames:
+            # Jeśli ścieżka nie istnieje, spróbuj w podfolderze 'shapes'
+            candidate = p
+            if not candidate.exists():
+                candidate = shapes_dir / p
+
             rdr = STEPControl_Reader()
-            status = rdr.ReadFile(str(p))
+            status = rdr.ReadFile(str(candidate))
             readers.append(rdr)
             statuses.append(status)
 
