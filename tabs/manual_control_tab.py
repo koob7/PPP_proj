@@ -83,7 +83,7 @@ class ManualControlTab(QWidget):
             title_lbl = QLabel(f"{axis} [°]")
             val_lbl = QLabel("0")
             slider = ResettableSlider(Qt.Horizontal, default_value=0)
-            slider.setMinimum(0)
+            slider.setMinimum(-360)
             slider.setMaximum(360)
             slider.setValue(0)
             slider.setTickPosition(QSlider.TicksBelow)

@@ -39,33 +39,37 @@ def center_shapes(shapes: List) -> List:
 
 
 def apply_transform_to_shape(shape, transform: Optional[TransformType]):
-    """Zastosuj rotacje i translacje do kształtu. Rotacje są względem (0,0,0)."""
-    shp = shape
+    """Zastosuj rotacje i translacje względem globalnego układu (0,0,0).
+    Rotacje są wykonywane w kolejności z listy, translacja jest stosowana PO rotacjach.
+    """
     if not transform:
-        return shp
+        return shape
 
-    rotations = transform.get("rotations", [])
-    for rot in rotations:
+    total_trsf = gp_Trsf()
+
+    # Rotacje (kolejność z listy)
+    for rot in transform.get("rotations", []):
         if not rot:
             continue
         axis = rot.get("axis")
         angle = rot.get("angle_deg")
-        if axis and (angle is not None):
-            ax_pnt = gp_Pnt(0, 0, 0)
-            ax_dir = gp_Dir(*axis)
-            ax = gp_Ax1(ax_pnt, ax_dir)
-            rot_trsf = gp_Trsf()
-            rot_trsf.SetRotation(ax, math.radians(float(angle)))
-            shp = BRepBuilderAPI_Transform(shp, rot_trsf, True).Shape()
+        if not axis or angle is None:
+            continue
+        ax = gp_Ax1(gp_Pnt(0, 0, 0), gp_Dir(*axis))
+        rot_trsf = gp_Trsf()
+        rot_trsf.SetRotation(ax, math.radians(float(angle)))
+        # kluczowe: mnożymy po prawej, żeby zachować kolejność rotacji
+        total_trsf = total_trsf.Multiplied(rot_trsf)
 
+    # Translacja — chcemy T * (R_n * ... * R1)
     tr = transform.get("translate")
     if tr:
-        vec = gp_Vec(*tr)
         tr_trsf = gp_Trsf()
-        tr_trsf.SetTranslation(vec)
-        shp = BRepBuilderAPI_Transform(shp, tr_trsf, True).Shape()
+        tr_trsf.SetTranslation(gp_Vec(*tr))
+        # ważne: translacja powinna być mnożona z lewej strony
+        total_trsf = tr_trsf.Multiplied(total_trsf)
 
-    return shp
+    return BRepBuilderAPI_Transform(shape, total_trsf, True).Shape()
 
 def apply_default_transforms(shapes: List, transforms_table: List[TransformType]):
     """

@@ -9,6 +9,7 @@ from OCC.Core.Aspect import Aspect_TOTP_RIGHT_LOWER
 from OCC.Core.gp import gp_Pnt
 from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeSphere
 from OCC.Display.OCCViewer import rgb_color
+from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeEdge
 import time
 from pathlib import Path
 from typing import List, Optional, Dict, Any
@@ -101,6 +102,8 @@ class StepViewer:
         )
         tabs.addTab(self.visibility_tab, "widoczność elementów")
         self.splitter.addWidget(tabs)
+        tabs.currentChanged.connect(self._on_tab_changed)
+        self.tabs = tabs
 
         # Ustaw domyślną wysokość viewer 3D na 600 px, reszta niech się dostosuje
         try:
@@ -112,6 +115,7 @@ class StepViewer:
 
         self.main_layout.addWidget(self.splitter)
 
+        self._on_shape_selected(self.current_shape_idx)
 
         # po ustawieniu domyślnych wartości zsynchronizuj checkboxy widoczności z draw_table
         try:
@@ -158,6 +162,23 @@ class StepViewer:
                 self.display.DisplayShape(shp, color=self.shape_colors[i])
                 t1 = time.perf_counter()
                 logger.debug("Rysowanie shape %d zajęło %.4f s", i, (t1 - t0))
+
+        # -------------------------
+        # Osie i marker (0,0,0)
+        # -------------------------
+        axis_len = 200
+
+        # Oś X (czerwona)
+        x_axis = BRepBuilderAPI_MakeEdge(gp_Pnt(-axis_len, 0, 0), gp_Pnt(axis_len, 0, 0)).Edge()
+        self.display.DisplayShape(x_axis, color=rgb_color(1.0, 0.0, 0.0))
+
+        # Oś Y (zielona)
+        y_axis = BRepBuilderAPI_MakeEdge(gp_Pnt(0, -axis_len, 0), gp_Pnt(0, axis_len, 0)).Edge()
+        self.display.DisplayShape(y_axis, color=rgb_color(0.0, 1.0, 0.0))
+
+        # Oś Z (niebieska)
+        z_axis = BRepBuilderAPI_MakeEdge(gp_Pnt(0, 0, -axis_len), gp_Pnt(0, 0, axis_len)).Edge()
+        self.display.DisplayShape(z_axis, color=rgb_color(0.0, 0.0, 1.0))
 
         # marker w (0,0,0)
         marker = BRepPrimAPI_MakeSphere(gp_Pnt(0, 0, 0), self.marker_radius).Shape()
@@ -231,6 +252,14 @@ class StepViewer:
         """Sync visibility checkboxes with draw_table."""
         self.visibility_tab.sync_checkboxes(self.draw_table)
 
+    def _on_tab_changed(self, index: int) -> None:
+        """Wywołuje callback po zmianie zakładki."""
+        widget = self.tabs.widget(index)
+        if widget is self.manual_tab:
+            # Wywołaj callback po wejściu w zakładkę manual_tab
+            self._on_shape_selected(self.current_shape_idx)
+
+
     def _init_defaults(self):
         """Ustawienia domyślne (kolory, draw_table, transforms) zgodne z pierwotnym skryptem."""
         # kolory (jeśli shapes będą mniejsze/większe, v-sized list)
@@ -249,40 +278,40 @@ class StepViewer:
 
         # domyślne transforms (pusta translacja + trzy rotacje: Z, Y, X)
         self.default_transforms = [
-            {'translate': (0,0,0), 'rotations': [
+            {'translate': (0,0,65.6/2), 'rotations': [                 # X, Y, Z
                 {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0},  # Z
                 {'origin': (0,0,0), 'axis': (0,1,0), 'angle_deg': 0},  # Y
-                {'origin': (0,0,0), 'axis': (1,0,0), 'angle_deg': 0},  # X
+                {'origin': (0,0,0), 'axis': (1,0,0), 'angle_deg': 180},# X
             ]},
-            {'translate': (0,0,0), 'rotations': [
+            {'translate': (3.04,0,60.90+82.9/2), 'rotations': [
+                {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': -90},
+                {'origin': (0,0,0), 'axis': (0,1,0), 'angle_deg': 0},
+                {'origin': (0,0,0), 'axis': (1,0,0), 'angle_deg': -90},
+            ]},
+            {'translate': (39.40+38.9/2-3.5,128.55,0), 'rotations': [
+                {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0},
+                {'origin': (0,0,0), 'axis': (0,1,0), 'angle_deg': -90},
+                {'origin': (0,0,0), 'axis': (1,0,0), 'angle_deg': 180},
+            ]},
+            {'translate': (12,32.55,0), 'rotations': [
+                {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0},
+                {'origin': (0,0,0), 'axis': (0,1,0), 'angle_deg': -90},
+                {'origin': (0,0,0), 'axis': (1,0,0), 'angle_deg': 0},
+            ]},
+            {'translate': (0,37+288/2,0), 'rotations': [
                 {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0},
                 {'origin': (0,0,0), 'axis': (0,1,0), 'angle_deg': 0},
                 {'origin': (0,0,0), 'axis': (1,0,0), 'angle_deg': 0},
             ]},
-            {'translate': (0,0,0), 'rotations': [
-                {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0},
+            {'translate': (0,18.2,0), 'rotations': [
+                {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 90},
                 {'origin': (0,0,0), 'axis': (0,1,0), 'angle_deg': 0},
-                {'origin': (0,0,0), 'axis': (1,0,0), 'angle_deg': 0},
+                {'origin': (0,0,0), 'axis': (1,0,0), 'angle_deg': 90},
             ]},
-            {'translate': (0,0,0), 'rotations': [
+            {'translate': (0,9/2+54.4,0), 'rotations': [
                 {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0},
                 {'origin': (0,0,0), 'axis': (0,1,0), 'angle_deg': 0},
-                {'origin': (0,0,0), 'axis': (1,0,0), 'angle_deg': 0},
-            ]},
-            {'translate': (0,0,0), 'rotations': [
-                {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0},
-                {'origin': (0,0,0), 'axis': (0,1,0), 'angle_deg': 0},
-                {'origin': (0,0,0), 'axis': (1,0,0), 'angle_deg': 0},
-            ]},
-            {'translate': (0,0,0), 'rotations': [
-                {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0},
-                {'origin': (0,0,0), 'axis': (0,1,0), 'angle_deg': 0},
-                {'origin': (0,0,0), 'axis': (1,0,0), 'angle_deg': 0},
-            ]},
-            {'translate': (0,0,0), 'rotations': [
-                {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0},
-                {'origin': (0,0,0), 'axis': (0,1,0), 'angle_deg': 0},
-                {'origin': (0,0,0), 'axis': (1,0,0), 'angle_deg': 0},
+                {'origin': (0,0,0), 'axis': (1,0,0), 'angle_deg': -90},
             ]},
         ]
 
