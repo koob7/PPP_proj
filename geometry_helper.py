@@ -10,6 +10,7 @@ from OCC.Core.BRepBndLib import brepbndlib
 from OCC.Core.gp import gp_Trsf, gp_Vec, gp_Pnt, gp_Dir, gp_Ax1
 from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Transform
 from my_types import TransformType
+from OCC.Core.gp import gp_Ax3
 
 
 def simplify_shapes(shapes: List, linear_deflection: float = 1.0, angular_deflection: float = 0.8) -> List:
@@ -38,7 +39,7 @@ def center_shapes(shapes: List) -> List:
     return centered
 
 
-def apply_transform_to_shape(shape, transform: Optional[TransformType]):
+def apply_transform_to_shape_XYZ(shape, transform: Optional[TransformType]):
     """Zastosuj rotacje i translacje względem globalnego układu (0,0,0).
     Rotacje są wykonywane w kolejności z listy, translacja jest stosowana PO rotacjach.
     """
@@ -75,7 +76,7 @@ def apply_default_transforms(shapes: List, transforms_table: List[TransformType]
     """
     Zastosuj transformacje (rotacje i translacje) dla wszystkich shape'ów
     zgodnie z istniejącą tabelą transforms_table, korzystając z funkcji
-    apply_transform_to_shape().
+    apply_transform_to_shape_XYZ().
     """
     if not shapes or not transforms_table:
         print("⚠️ Brak shape'ów lub tabeli transformacji.")
@@ -88,7 +89,7 @@ def apply_default_transforms(shapes: List, transforms_table: List[TransformType]
 
     transformed = []
     for i, shape in enumerate(shapes):
-        new_shape = apply_transform_to_shape(shape, transforms_table[i])
+        new_shape = apply_transform_to_shape_XYZ(shape, transforms_table[i])
         transformed.append(new_shape)
 
     print(f"✅ Zastosowano transformacje do {len(transformed)} brył.")
