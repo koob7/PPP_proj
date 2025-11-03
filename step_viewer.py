@@ -14,7 +14,7 @@ from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeEdge
 from OCC.Core.AIS import AIS_Shape
 import time
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from geometry_helper import apply_transform_to_shape, apply_default_transforms, get_total_transform
 import math
 import numpy as np
@@ -101,7 +101,11 @@ class StepViewer:
         )
         tabs.addTab(self.forward_kinematics_tab, "kinematyka prosta")
         
-        tabs.addTab(InverseKinematicsTab(), "kinematyka odwrotna")
+        # Inverse kinematics tab
+        self.inverse_kinematics_tab = InverseKinematicsTab(
+            on_slider_change=self._on_inverse_kinematics_change,
+        )
+        tabs.addTab(self.inverse_kinematics_tab, "kinematyka odwrotna")
         
         # Visibility tab
         self.visibility_tab = VisibilityTab(
@@ -253,9 +257,11 @@ class StepViewer:
             rotations[0]["angle_deg"],  # Z
         )
 
-    def _on_forward_kinematics_change(self):
+    def apply_forward_kinematics(self, axis_values) -> Tuple[float, float, float, float, float, float]:
         """Handle forward kinematics slider changes."""
-        axis_values = list(self.forward_kinematics_tab.get_axis_values())
+        
+        # Convert to list if tuple (tuples are immutable)
+        axis_values = list(axis_values)
 
         for i in range(6):
             axis_values[i] += 0.001 #to prevent singularity
@@ -295,9 +301,33 @@ class StepViewer:
             pos = pos2
 
         pos = pose_from_transform(tr[5], degrees=True)
-        x, y, z, a, b, c = pos
-        self.forward_kinematics_tab.set_pose_numbers(x, y, z, a, b, c);
+        return pos
 
+    def _on_forward_kinematics_change(self) -> None:
+        """Handle forward kinematics slider changes."""
+        x, y, z, a, b, c = self.apply_forward_kinematics(list(self.forward_kinematics_tab.get_axis_values()))
+        self.forward_kinematics_tab.set_pose_numbers(x, y, z, a, b, c)
+        self.inverse_kinematics_tab.set_pose_desired_numbers(x, y, z, a, b, c)
+        self.inverse_kinematics_tab.set_pose_achieved_numbers(x, y, z, a, b, c)
+        self.inverse_kinematics_tab.set_target_pose_values((x, y, z, a, b, c))
+
+    def _on_inverse_kinematics_change(self) -> None:
+        """Handle inverse kinematics target changes.
+
+        For now, we only reflect the desired target pose in the readouts and
+        mirror it as the achieved pose (solver to be added later).
+        """
+        if not hasattr(self, "inverse_kinematics_tab"):
+            return
+        x, y, z, a, b, c = self.inverse_kinematics_tab.get_target_pose_values()
+        o1, o2, o3, o4, o5, o6 = 0, 0, 0, 0, 0, 0  #calculate from IK solver  #
+
+        x1, y1, z1, a1, b1, c1 = self.apply_forward_kinematics((o1, o2, o3, o4, o5, o6))#tutaj rysowanie tego co zwrociła ik i sprawdzenie co wyszło
+        # Update desired field from sliders
+        self.inverse_kinematics_tab.set_pose_desired_numbers(x, y, z, a, b, c)
+        # Placeholder: until IK solver is implemented, show achieved = desired
+        self.inverse_kinematics_tab.set_pose_achieved_numbers(x1, y1, z1, a1, b1, c1)
+        self.forward_kinematics_tab.set_pose_numbers(x1, y1, z1, a1, b1, c1)
 
     def _on_visibility_changed(self, idx: int, state: int) -> None:
         # aktualizacja widoczności i odrysowanie sceny
