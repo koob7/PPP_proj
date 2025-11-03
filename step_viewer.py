@@ -141,19 +141,6 @@ class StepViewer:
             logger.error("Koniec działania: nie udało się wczytać shapes.")
             return
         self.shapes_with_transforms = apply_default_transforms(self.shapes, self.default_transforms)
-        tmp_shapes = self.shapes_with_transforms.copy()
-        test_transform = [
-            {
-                'translate': (0.0, 0.0, 0.0),
-                'rotations': [
-                    {'origin': (0, 0, 0), 'axis': (0, 0, 1), 'angle_deg': -90},  # Z
-                    {'origin': (0, 0, 0), 'axis': (0, 1, 0), 'angle_deg': 0.0},  # Y
-                    {'origin': (0, 0, 0), 'axis': (1, 0, 0), 'angle_deg': 0.0},  # X
-                ],
-            }
-            for _ in range(7)
-        ]
-        self.shapes_with_transforms = apply_default_transforms(tmp_shapes, test_transform)
         self.displayed_shapes = self.shapes_with_transforms.copy()
         # pierwsze rysowanie
         self.redraw_scene()
@@ -376,33 +363,33 @@ class StepViewer:
                 {'origin': (0,0,0), 'axis': (0,1,0), 'angle_deg': 0},  # Y
                 {'origin': (0,0,0), 'axis': (1,0,0), 'angle_deg': 180},# X
             ]},
-            {'translate': (3.04,0,60.90+82.9/2), 'rotations': [
-                {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': -90},
+            {'translate': (0,-3.04,60.90+82.9/2), 'rotations': [
+                {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': -180},
                 {'origin': (0,0,0), 'axis': (0,1,0), 'angle_deg': 0},
                 {'origin': (0,0,0), 'axis': (1,0,0), 'angle_deg': -90},
             ]},
-            {'translate': (0,128.55,(39.40+38.9/2-3.5)), 'rotations': [
-                {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 180},
+            {'translate': (128.55,0,(39.40+38.9/2-3.5)), 'rotations': [
+                {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 90},
                 {'origin': (0,0,0), 'axis': (0,1,0), 'angle_deg': 0},
                 {'origin': (0,0,0), 'axis': (1,0,0), 'angle_deg': 0},
             ]},
-            {'translate': (-12,0,32.55), 'rotations': [
-                {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': -90},
+            {'translate': (0,12,32.55), 'rotations': [
+                {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': -180},
                 {'origin': (0,0,0), 'axis': (0,1,0), 'angle_deg': 180},
                 {'origin': (0,0,0), 'axis': (1,0,0), 'angle_deg': -90},
             ]},
-            {'translate': ((37+288/2),0,0), 'rotations': [
-                {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0},
+            {'translate': (0,-(37+288/2),0), 'rotations': [
+                {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg':-90},
                 {'origin': (0,0,0), 'axis': (0,1,0), 'angle_deg': -90},
                 {'origin': (0,0,0), 'axis': (1,0,0), 'angle_deg': -90},
             ]},
             {'translate': (0,0,18.2), 'rotations': [
-                {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': -90},
+                {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': -180},
                 {'origin': (0,0,0), 'axis': (0,1,0), 'angle_deg': -90},
                 {'origin': (0,0,0), 'axis': (1,0,0), 'angle_deg': 90},
             ]},
             {'translate': (0,0,9/2+54.4), 'rotations': [
-                {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 0},
+                {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': -90},
                 {'origin': (0,0,0), 'axis': (0,1,0), 'angle_deg': 0},
                 {'origin': (0,0,0), 'axis': (1,0,0), 'angle_deg': 0},
             ]},
