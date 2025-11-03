@@ -242,66 +242,38 @@ class StepViewer:
         for i in range(6):
             axis_values[i] += 0.001 #to prevent singularity
 
-        os.system('cls')
-
         logger.info(f"Kinematyka prosta - wartości osi: {axis_values}")
+        print("Joint 0 pos: x=0.00, y=0.00, z=0.00, a=0.00, b=0.00, c=0.00")
 
-
-
-        forward_transforms = [
-            {
-                'translate': (0.0, 0.0, 0.0),
-                'rotations': [
-                    {'origin': (0, 0, 0), 'axis': (0, 0, 1), 'angle_deg': 0.0},  # Z
-                    {'origin': (0, 0, 0), 'axis': (0, 1, 0), 'angle_deg': 0.0},  # Y
-                    {'origin': (0, 0, 0), 'axis': (1, 0, 0), 'angle_deg': 0.0},  # X
-                ],
-            }
-            for _ in range(6)
-        ]
-
-        dh_m1 = dh_matrix(ROBOT_DH_PARAMS[0][0], ROBOT_DH_PARAMS[0][1], ROBOT_DH_PARAMS[0][2], math.radians(axis_values[0]))
-        dh_m2 = dh_matrix(ROBOT_DH_PARAMS[1][0], ROBOT_DH_PARAMS[1][1], ROBOT_DH_PARAMS[1][2], math.radians(axis_values[1]))
-        dh_m3 = dh_matrix(ROBOT_DH_PARAMS[2][0], ROBOT_DH_PARAMS[2][1], ROBOT_DH_PARAMS[2][2], math.radians(axis_values[2]))
-        dh_m4 = dh_matrix(ROBOT_DH_PARAMS[3][0], ROBOT_DH_PARAMS[3][1], ROBOT_DH_PARAMS[3][2], math.radians(axis_values[3]))
-        dh_m5 = dh_matrix(ROBOT_DH_PARAMS[4][0], ROBOT_DH_PARAMS[4][1], ROBOT_DH_PARAMS[4][2], math.radians(axis_values[4]))
-        dh_m6 = dh_matrix(ROBOT_DH_PARAMS[5][0], ROBOT_DH_PARAMS[5][1], ROBOT_DH_PARAMS[5][2], math.radians(axis_values[5]))
-
+        dh = np.array([np.eye(4) for _ in range(6)])
         tr = np.array([np.eye(4) for _ in range(6)])
-        
-        tr[0] = dh_m1
-        tr[1] = mat4_mul(dh_m1, dh_m2)
-        tr[2] = mat4_mul(tr[1], dh_m3)
-        tr[3] = mat4_mul(tr[2], dh_m4)
-        tr[4] = mat4_mul(tr[3], dh_m5)
-        tr[5] = mat4_mul(tr[4], dh_m6)
 
-        pos2 = pose_from_transform(tr[0], degrees=True)
-        x2, y2, z2, a2, b2, c2 = pos2
-        print(f"Joint 0 pos: x={x2:.2f}, y={y2:.2f}, z={z2:.2f}, a={a2:.2f}, b={b2:.2f}, c={c2:.2f}")
+        for i in range(6):
+            dh[i] = dh_matrix(ROBOT_DH_PARAMS[i][0], ROBOT_DH_PARAMS[i][1], ROBOT_DH_PARAMS[i][2], math.radians(axis_values[i]))
 
-        forward_transforms[0]['rotations'][0]['angle_deg'] = a2  # Z
-        forward_transforms[0]['rotations'][1]['angle_deg'] = 0  # Y
-        forward_transforms[0]['rotations'][2]['angle_deg'] = 0  # X
-        
+        tr[0] = dh[0]
+        tr[1] = mat4_mul(dh[0], dh[1])
+        for i in range(2,6):
+            tr[i] = mat4_mul(tr[i-1], dh[i])
+
+        pos = pose_from_transform(tr[0], degrees=True)
+        x, y, z, a, b, c = pos
+        print(f"Joint 1 pos: x={x:.2f}, y={y:.2f}, z={z:.2f}, a={a:.2f}, b=0.00, c=0.00")
+        self.transforms_table[1]['rotations'][0]['angle_deg'] = a  # Z
+        self.displayed_shapes[1] = apply_transform_to_shape_XYZ(self.shapes_with_transforms[1], self.transforms_table[1])
 
 
         for i in range(1,6):
-            pos = pose_from_transform(tr[i-1], degrees=True)
             pos2 = pose_from_transform(tr[i], degrees=True)
             x, y, z, a, b, c = pos
             x2, y2, z2, a2, b2, c2 = pos2
-            forward_transforms[i]['translate'] = (x, y, z)
-            forward_transforms[i]['rotations'][0]['angle_deg'] = a2  # Z
-            forward_transforms[i]['rotations'][1]['angle_deg'] = b2  # Y 
-            forward_transforms[i]['rotations'][2]['angle_deg'] = c2  # X
-            print(f"Joint {i+1} pos: x={x2:.2f}, y={y2:.2f}, z={z2:.2f}, a={a2:.2f}, b={b2:.2f}, c={c2:.2f}")
-
-
-        for i in range(6):
-            print(f"Joint {i+1}: x={forward_transforms[i]['translate'][0]:.2f}, y={forward_transforms[i]['translate'][1]:.2f}, z={forward_transforms[i]['translate'][2]:.2f}, a={forward_transforms[i]['rotations'][0]['angle_deg']:.2f}, b={forward_transforms[i]['rotations'][1]['angle_deg']:.2f}, c={forward_transforms[i]['rotations'][2]['angle_deg']:.2f}")
-            self.displayed_shapes[i+1] = apply_transform_to_shape_XYZ(self.shapes_with_transforms[i+1], forward_transforms[i])
-            self.transforms_table[i+1] = forward_transforms[i]
+            self.transforms_table[i+1]['translate'] = (x, y, z)
+            self.transforms_table[i+1]['rotations'][0]['angle_deg'] = a2  # Z
+            self.transforms_table[i+1]['rotations'][1]['angle_deg'] = b2  # Y 
+            self.transforms_table[i+1]['rotations'][2]['angle_deg'] = c2  # X
+            self.displayed_shapes[i+1] = apply_transform_to_shape_XYZ(self.shapes_with_transforms[i+1], self.transforms_table[i+1])
+            print(f"Joint {i+1} pos: x={x:.2f}, y={y:.2f}, z={z:.2f}, a={a2:.2f}, b={b2:.2f}, c={c2:.2f}")
+            pos = pos2
 
         self.redraw_scene()
 
