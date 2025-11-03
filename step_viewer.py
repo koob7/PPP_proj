@@ -11,10 +11,11 @@ from OCC.Core.gp import gp_Pnt
 from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeSphere
 from OCC.Display.OCCViewer import rgb_color
 from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeEdge
+from OCC.Core.AIS import AIS_Shape
 import time
 from pathlib import Path
 from typing import List, Optional, Dict, Any
-from geometry_helper import apply_transform_to_shape_XYZ, apply_default_transforms
+from geometry_helper import apply_transform_to_shape, apply_default_transforms, get_total_transform
 import math
 import numpy as np
 
@@ -53,7 +54,7 @@ class StepViewer:
 
         # scene state
         self.shapes: Optional[List] = None           # shapes centered & simplified (used for display)
-        self.displayed_shapes: Optional[List] = None
+        self.displayed_shapes = {}
         self.shapes_with_transforms: Optional[List] = None
         self.default_transforms: List[TransformType] = []
         self.transforms_table: List[TransformType] = []
@@ -77,6 +78,7 @@ class StepViewer:
         # viewer 3D
         self.viewer = qtViewer3d(self.window)
         self.display = self.viewer._display
+        self.context = self.display.Context
         self.display.set_bg_gradient_color(rgb_color(0.68, 0.85, 0.90), rgb_color(0.95, 0.97, 1.0), 4)
         self.display.View.TriedronDisplay(Aspect_TOTP_RIGHT_LOWER, Quantity_Color(Quantity_NOC_BLACK), 0.25, V3d_WIREFRAME)
         self.splitter.addWidget(self.viewer)
@@ -141,19 +143,34 @@ class StepViewer:
             logger.error("Koniec działania: nie udało się wczytać shapes.")
             return
         self.shapes_with_transforms = apply_default_transforms(self.shapes, self.default_transforms)
-        self.displayed_shapes = self.shapes_with_transforms.copy()
+        for i, shape in enumerate(self.shapes_with_transforms):
+            self.displayed_shapes[i] = AIS_Shape(shape)
+
         # pierwsze rysowanie
-        self.redraw_scene()
+        self.draw_scene()
         # pokaż okno i start event loop
         self.window.show()
         self.app.exec_()
+
+
+    def update_shape(self, index: int) -> None:
+        """Update shape at given index with new transform."""
+        if index not in self.displayed_shapes:
+            logger.error(f"Shape o indeksie {index} nie istnieje w displayed_shapes.")
+            return
+        if not self.draw_table[index]:
+            self.context.Erase(self.displayed_shapes[index], True)
+        else:
+            self.context.Display(self.displayed_shapes[index], True)
+            self.displayed_shapes[index].SetLocalTransformation(get_total_transform(self.transforms_table[index]))
+            self.context.Redisplay(self.displayed_shapes[index], True)
 
 
 
     # -------------------------
     # Drawing
     # -------------------------
-    def redraw_scene(self) -> None:
+    def draw_scene(self) -> None:
         """Wyczyść scenę i narysuj ponownie wszystkie kształty wraz z markerem."""
         if self.display is None:
             logger.error("Display niedostępny.")
@@ -168,30 +185,13 @@ class StepViewer:
             if should_draw:
                 # czas rysowania (można mierzyć dla debugu)
                 t0 = time.perf_counter()
-                self.display.DisplayShape(shp, color=self.shape_colors[i])
+                self.context.Display(self.displayed_shapes[i], True)
+                self.context.SetColor(self.displayed_shapes[i], self.shape_colors[i], False)
+                self.context.Redisplay(self.displayed_shapes[i], True)
                 t1 = time.perf_counter()
                 logger.debug("Rysowanie shape %d zajęło %.4f s", i, (t1 - t0))
 
-        # -------------------------
-        # Osie i marker (0,0,0)
-        # -------------------------
-        axis_len = 200
-
-        # Oś X (czerwona)
-        x_axis = BRepBuilderAPI_MakeEdge(gp_Pnt(-axis_len, 0, 0), gp_Pnt(axis_len, 0, 0)).Edge()
-        self.display.DisplayShape(x_axis, color=rgb_color(1.0, 0.0, 0.0))
-
-        # Oś Y (zielona)
-        y_axis = BRepBuilderAPI_MakeEdge(gp_Pnt(0, -axis_len, 0), gp_Pnt(0, axis_len, 0)).Edge()
-        self.display.DisplayShape(y_axis, color=rgb_color(0.0, 1.0, 0.0))
-
-        # Oś Z (niebieska)
-        z_axis = BRepBuilderAPI_MakeEdge(gp_Pnt(0, 0, -axis_len), gp_Pnt(0, 0, axis_len)).Edge()
-        self.display.DisplayShape(z_axis, color=rgb_color(0.0, 0.0, 1.0))
-
-        # marker w (0,0,0)
-        marker = BRepPrimAPI_MakeSphere(gp_Pnt(0, 0, 0), self.marker_radius).Shape()
-        self.display.DisplayShape(marker, color=rgb_color(1.0, 0.0, 0.0))
+        self._draw_axes()
 
         self.display.View_Iso()
         self.display.FitAll()
@@ -200,6 +200,24 @@ class StepViewer:
         except Exception:
             # niektóre wersje mają inną metodę — ignore jeśli nie istnieje
             pass
+
+    # --------------------------------------------------
+    def _draw_axes(self):
+        """Pomocnicza metoda do rysowania osi XYZ."""
+        axis_len = 200
+        # X
+        x_axis = BRepBuilderAPI_MakeEdge(gp_Pnt(-axis_len, 0, 0), gp_Pnt(axis_len, 0, 0)).Edge()
+        self.display.DisplayShape(x_axis, color=rgb_color(1.0, 0.0, 0.0))
+        # Y
+        y_axis = BRepBuilderAPI_MakeEdge(gp_Pnt(0, -axis_len, 0), gp_Pnt(0, axis_len, 0)).Edge()
+        self.display.DisplayShape(y_axis, color=rgb_color(0.0, 1.0, 0.0))
+        # Z
+        z_axis = BRepBuilderAPI_MakeEdge(gp_Pnt(0, 0, -axis_len), gp_Pnt(0, 0, axis_len)).Edge()
+        self.display.DisplayShape(z_axis, color=rgb_color(0.0, 0.0, 1.0))
+        # marker
+        marker = BRepPrimAPI_MakeSphere(gp_Pnt(0, 0, 0), self.marker_radius).Shape()
+        self.display.DisplayShape(marker, color=rgb_color(1.0, 0.0, 0.0))
+
 
     # -------------------------
     # UI callbacks
@@ -216,10 +234,9 @@ class StepViewer:
         self.transforms_table[idx]["rotations"][0]["angle_deg"] = rz
         self.transforms_table[idx]["rotations"][1]["angle_deg"] = ry
         self.transforms_table[idx]["rotations"][2]["angle_deg"] = rx
-        
-        self.displayed_shapes[idx] = apply_transform_to_shape_XYZ(self.shapes_with_transforms[idx], self.transforms_table[idx])
+
+        self.update_shape(idx)
         self.forward_kinematics_tab.clear_pose()
-        self.redraw_scene()
 
     def _on_shape_selected(self, index):
         self.current_shape_idx = index
@@ -262,7 +279,7 @@ class StepViewer:
         x, y, z, a, b, c = pos
         print(f"Joint 1 pos: x={x:.2f}, y={y:.2f}, z={z:.2f}, a={a:.2f}, b=0.00, c=0.00")
         self.transforms_table[1]['rotations'][0]['angle_deg'] = a  # Z
-        self.displayed_shapes[1] = apply_transform_to_shape_XYZ(self.shapes_with_transforms[1], self.transforms_table[1])
+        self.update_shape(1)
 
 
         for i in range(1,6):
@@ -273,15 +290,13 @@ class StepViewer:
             self.transforms_table[i+1]['rotations'][0]['angle_deg'] = a2  # Z
             self.transforms_table[i+1]['rotations'][1]['angle_deg'] = b2  # Y 
             self.transforms_table[i+1]['rotations'][2]['angle_deg'] = c2  # X
-            self.displayed_shapes[i+1] = apply_transform_to_shape_XYZ(self.shapes_with_transforms[i+1], self.transforms_table[i+1])
+            self.update_shape(i+1)
             print(f"Joint {i+1} pos: x={x:.2f}, y={y:.2f}, z={z:.2f}, a={a2:.2f}, b={b2:.2f}, c={c2:.2f}")
             pos = pos2
 
         pos = pose_from_transform(tr[5], degrees=True)
         x, y, z, a, b, c = pos
         self.forward_kinematics_tab.set_pose_numbers(x, y, z, a, b, c);
-
-        self.redraw_scene()
 
 
     def _on_visibility_changed(self, idx: int, state: int) -> None:
@@ -292,7 +307,7 @@ class StepViewer:
         if idx >= len(self.draw_table):
             self.draw_table += [False] * (idx + 1 - len(self.draw_table))
         self.draw_table[idx] = val
-        self.redraw_scene()
+        self.update_shape(idx)
 
     def _set_all_visibility(self, value: bool) -> None:
         """Set visibility for all elements."""
@@ -302,9 +317,9 @@ class StepViewer:
         
         for i in range(count):
             self.draw_table[i] = value
+            self.update_shape(i)
         
         self.visibility_tab.set_all_checkboxes(value)
-        self.redraw_scene()
     
     def _sync_visibility_checkboxes(self):
         """Sync visibility checkboxes with draw_table."""

@@ -39,12 +39,10 @@ def center_shapes(shapes: List) -> List:
     return centered
 
 
-def apply_transform_to_shape_XYZ(shape, transform: Optional[TransformType]):
+def get_total_transform(transform: Optional[TransformType]):
     """Zastosuj rotacje i translacje względem globalnego układu (0,0,0).
     Rotacje są wykonywane w kolejności z listy, translacja jest stosowana PO rotacjach.
     """
-    if not transform:
-        return shape
 
     total_trsf = gp_Trsf()
 
@@ -70,13 +68,25 @@ def apply_transform_to_shape_XYZ(shape, transform: Optional[TransformType]):
         # ważne: translacja powinna być mnożona z lewej strony
         total_trsf = tr_trsf.Multiplied(total_trsf)
 
-    return BRepBuilderAPI_Transform(shape, total_trsf, True).Shape()
+    return total_trsf
+
+def apply_transform_to_shape(shape, transform: Optional[TransformType]):
+    """Zastosuj rotacje i translacje względem globalnego układu (0,0,0).
+    Rotacje są wykonywane w kolejności z listy, translacja jest stosowana PO rotacjach.
+    """
+    if not transform:
+        return shape
+
+    total_trsf = get_total_transform(transform)
+
+    shp_transformed = BRepBuilderAPI_Transform(shape, total_trsf, True).Shape()
+    return shp_transformed
 
 def apply_default_transforms(shapes: List, transforms_table: List[TransformType]):
     """
     Zastosuj transformacje (rotacje i translacje) dla wszystkich shape'ów
     zgodnie z istniejącą tabelą transforms_table, korzystając z funkcji
-    apply_transform_to_shape_XYZ().
+    apply_transform_to_shape().
     """
     if not shapes or not transforms_table:
         print("⚠️ Brak shape'ów lub tabeli transformacji.")
@@ -89,7 +99,7 @@ def apply_default_transforms(shapes: List, transforms_table: List[TransformType]
 
     transformed = []
     for i, shape in enumerate(shapes):
-        new_shape = apply_transform_to_shape_XYZ(shape, transforms_table[i])
+        new_shape = apply_transform_to_shape(shape, transforms_table[i])
         transformed.append(new_shape)
 
     print(f"✅ Zastosowano transformacje do {len(transformed)} brył.")

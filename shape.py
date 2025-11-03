@@ -40,7 +40,8 @@ class StepLoader:
         shapes = []
         for rdr in readers:
             rdr.TransferRoots()
-            shapes.append(rdr.Shape())
+            shapes.append(rdr.OneShape())
+            
         return shapes, statuses
 
     def load_shapes(self) -> Optional[List]:
