@@ -125,7 +125,5 @@ class ForwardKinematicsTab(QWidget):
                 f"x: {x:.2f}, y: {y:.2f}, z: {z:.2f}, a: {a:.2f}, b: {b:.2f}, c: {c:.2f}"
             )
 
-    def set_pose_text(self, text: str) -> None:
-        """Display arbitrary text in the pose field (e.g., when FK not implemented)."""
-        if self.pose_line is not None:
-            self.pose_line.setText(text)
+    def clear_pose(self) -> None:
+        self.pose_line.setText("x: -, y: -, z: -, a: -, b: -, c: -")

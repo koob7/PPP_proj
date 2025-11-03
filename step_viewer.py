@@ -218,6 +218,7 @@ class StepViewer:
         self.transforms_table[idx]["rotations"][2]["angle_deg"] = rx
         
         self.displayed_shapes[idx] = apply_transform_to_shape_XYZ(self.shapes_with_transforms[idx], self.transforms_table[idx])
+        self.forward_kinematics_tab.clear_pose()
         self.redraw_scene()
 
     def _on_shape_selected(self, index):
@@ -244,6 +245,7 @@ class StepViewer:
 
         logger.info(f"Kinematyka prosta - wartości osi: {axis_values}")
         print("Joint 0 pos: x=0.00, y=0.00, z=0.00, a=0.00, b=0.00, c=0.00")
+
 
         dh = np.array([np.eye(4) for _ in range(6)])
         tr = np.array([np.eye(4) for _ in range(6)])
@@ -274,6 +276,10 @@ class StepViewer:
             self.displayed_shapes[i+1] = apply_transform_to_shape_XYZ(self.shapes_with_transforms[i+1], self.transforms_table[i+1])
             print(f"Joint {i+1} pos: x={x:.2f}, y={y:.2f}, z={z:.2f}, a={a2:.2f}, b={b2:.2f}, c={c2:.2f}")
             pos = pos2
+
+        pos = pose_from_transform(tr[5], degrees=True)
+        x, y, z, a, b, c = pos
+        self.forward_kinematics_tab.set_pose_numbers(x, y, z, a, b, c);
 
         self.redraw_scene()
 

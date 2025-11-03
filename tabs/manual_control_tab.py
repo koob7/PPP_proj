@@ -76,7 +76,7 @@ class ManualControlTab(QWidget):
             self.sliders_translate[axis] = slider
         
         # Rotation sliders
-        layout.addWidget(QLabel("Rotacje (°)"))
+        layout.addWidget(QLabel("Rotacje (°) - odbywają się kolejno w osiach: X, Y, Z"))
         for axis in ["X", "Y", "Z"]:
             row = QWidget()
             row_layout = QHBoxLayout(row)
