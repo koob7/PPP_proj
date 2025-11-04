@@ -189,7 +189,7 @@ class StepViewer:
             if should_draw:
                 # czas rysowania (można mierzyć dla debugu)
                 t0 = time.perf_counter()
-                self.context.Display(self.displayed_shapes[i], True)
+                self.context.Display(self.displayed_shapes[i], False)
                 self.context.SetColor(self.displayed_shapes[i], self.shape_colors[i], False)
                 self.context.Redisplay(self.displayed_shapes[i], True)
                 t1 = time.perf_counter()
@@ -259,9 +259,11 @@ class StepViewer:
 
     def apply_forward_kinematics(self, axis_values) -> Tuple[float, float, float, float, float, float]:
         """Handle forward kinematics slider changes."""
-        
+        self.forward_kinematics_tab.set_axis_values(tuple(round(v) for v in axis_values))
+
         # Convert to list if tuple (tuples are immutable)
         axis_values = list(axis_values)
+
 
         for i in range(6):
             axis_values[i] += 0.001 #to prevent singularity
@@ -301,15 +303,17 @@ class StepViewer:
             pos = pos2
 
         pos = pose_from_transform(tr[5], degrees=True)
+        x, y, z, a, b, c = pos
+        self.forward_kinematics_tab.set_pose_numbers(x, y, z, a, b, c)
         return pos
 
     def _on_forward_kinematics_change(self) -> None:
         """Handle forward kinematics slider changes."""
         x, y, z, a, b, c = self.apply_forward_kinematics(list(self.forward_kinematics_tab.get_axis_values()))
-        self.forward_kinematics_tab.set_pose_numbers(x, y, z, a, b, c)
         self.inverse_kinematics_tab.set_pose_desired_numbers(x, y, z, a, b, c)
         self.inverse_kinematics_tab.set_pose_achieved_numbers(x, y, z, a, b, c)
         self.inverse_kinematics_tab.set_target_pose_values((x, y, z, a, b, c))
+
 
     def _on_inverse_kinematics_change(self) -> None:
         """Handle inverse kinematics target changes.
