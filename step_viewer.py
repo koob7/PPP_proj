@@ -39,7 +39,7 @@ from tabs import (
     ForwardKinematicsTab,
     InverseKinematicsTab,
 )
-from fk_helper import ROBOT_DH_PARAMS, dh_matrix, mat4_mul, pose_from_transform
+from fk_helper import ROBOT_DH_PARAMS, dh_matrix, mat4_mul, pose_from_transform, calculate_ik
 
 class StepViewer:
     def __init__(
@@ -314,24 +314,35 @@ class StepViewer:
         self.inverse_kinematics_tab.set_pose_achieved_numbers(x, y, z, a, b, c)
         self.inverse_kinematics_tab.set_target_pose_values((x, y, z, a, b, c))
 
-
     def _on_inverse_kinematics_change(self) -> None:
-        """Handle inverse kinematics target changes.
-
-        For now, we only reflect the desired target pose in the readouts and
-        mirror it as the achieved pose (solver to be added later).
-        """
+        """Handle inverse kinematics target changes and update robot pose."""
         if not hasattr(self, "inverse_kinematics_tab"):
             return
+        
+        # Pobierz zadaną pozycję z suwaków IK
         x, y, z, a, b, c = self.inverse_kinematics_tab.get_target_pose_values()
-        o1, o2, o3, o4, o5, o6 = 0, 0, 0, 0, 0, 0  #calculate from IK solver  #
-
-        x1, y1, z1, a1, b1, c1 = self.apply_forward_kinematics((o1, o2, o3, o4, o5, o6))#tutaj rysowanie tego co zwrociła ik i sprawdzenie co wyszło
-        # Update desired field from sliders
-        self.inverse_kinematics_tab.set_pose_desired_numbers(x, y, z, a, b, c)
-        # Placeholder: until IK solver is implemented, show achieved = desired
-        self.inverse_kinematics_tab.set_pose_achieved_numbers(x1, y1, z1, a1, b1, c1)
-        self.forward_kinematics_tab.set_pose_numbers(x1, y1, z1, a1, b1, c1)
+        
+        try:
+            # Oblicz kąty osi z kinematyki odwrotnej
+            o1, o2, o3, o4, o5, o6 = calculate_ik(x, y, z, a, b, c)
+            
+            # Oblicz faktyczną osiągniętą pozycję przez kinematykę prostą
+            x1, y1, z1, a1, b1, c1 = self.apply_forward_kinematics((o1, o2, o3, o4, o5, o6))
+            
+            # Zaktualizuj wyświetlane pola
+            self.inverse_kinematics_tab.set_pose_desired_numbers(x, y, z, a, b, c)
+            self.inverse_kinematics_tab.set_pose_achieved_numbers(x1, y1, z1, a1, b1, c1)
+            self.forward_kinematics_tab.set_pose_numbers(x1, y1, z1, a1, b1, c1)
+            
+            # Zaktualizuj suwaki kinematyki prostej z obliczonymi kątami
+            self.forward_kinematics_tab.set_axis_values((o1, o2, o3, o4, o5, o6))
+            
+            logger.info(f"IK solved: θ=({o1:.2f}, {o2:.2f}, {o3:.2f}, {o4:.2f}, {o5:.2f}, {o6:.2f})°")
+            
+        except Exception as e:
+            logger.error(f"Błąd obliczania IK: {e}")
+            # W razie błędu pokaż zerowe wartości
+            self.inverse_kinematics_tab.set_pose_achieved_numbers(0, 0, 0, 0, 0, 0)
 
     def _on_visibility_changed(self, idx: int, state: int) -> None:
         # aktualizacja widoczności i odrysowanie sceny

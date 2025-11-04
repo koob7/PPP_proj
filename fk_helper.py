@@ -1,12 +1,12 @@
 """
-Funkcje i stałe do kinematyki prostej robota 6DOF (parametry DH, macierz DH, wymiary).
+Funkcje i stałe do kinematyki prostej i odwrotnej robota 6DOF (parametry DH, macierz DH, wymiary).
 """
 import numpy as np
 # --- Przykładowe wartości wymiarów (uzupełnij swoimi) ---
-D1 = 104.0   # mm
-A2 = 270.0   # mm
-D4 = 300.0   # mm
-D6 = 63.4    # mm
+D1 = 104.0   # mm (d1)
+A2 = 270.0   # mm (a2)
+D4 = 300.0   # mm (d4)
+D6 = 63.4    # mm (d6)
 
 # --- Parametry geometryczne robota 
 # Wszystkie jednostki w mm, kąty w radianach (do obliczeń)
@@ -82,3 +82,92 @@ def pose_from_transform(T: np.ndarray, degrees: bool = True):
         a_out, b_out, c_out = a_ang, c_ang, b# wychodzi że x jest zamieniony z Y
 
     return float(x), float(y), float(z), float(a_out), float(b_out), float(c_out)
+
+
+def calculate_ik(x: float, y: float, z: float, phi: float, theta_rotation: float, psi: float) -> tuple[float, float, float, float, float, float]:
+
+    
+    theta = [0.0] * 6
+    
+    # Konwersja kątów orientacji ze stopni na radiany
+    phi = phi * np.pi / 180
+    theta_rotation = theta_rotation * np.pi / 180
+    psi = psi * np.pi / 180
+    
+    # Macierz rotacji z kątów Eulera
+    r11 = np.cos(phi) * np.sin(theta_rotation) * np.cos(psi) + np.sin(phi) * np.sin(psi)
+    r21 = np.sin(phi) * np.sin(theta_rotation) * np.cos(psi) - np.cos(phi) * np.sin(psi)
+    r31 = np.cos(theta_rotation) * np.cos(psi)
+    
+    r12 = np.cos(phi) * np.cos(theta_rotation)
+    r22 = np.sin(phi) * np.cos(theta_rotation)
+    r32 = -np.sin(theta_rotation)
+    
+    r13 = np.cos(phi) * np.sin(theta_rotation) * np.sin(psi) - np.sin(phi) * np.cos(psi)
+    r23 = np.sin(phi) * np.sin(theta_rotation) * np.sin(psi) + np.cos(phi) * np.cos(psi)
+    r33 = np.cos(theta_rotation) * np.sin(psi)
+    
+    # Pozycja nadgarstka
+    Wx = x - D6 * r13
+    Wy = y - D6 * r23
+    Wz = z - D6 * r33
+    r = np.sqrt(Wx * Wx + Wy * Wy)
+    s = Wz - D1
+    
+    # theta[0] - pierwsza oś
+    theta[0] = np.arctan2(Wy, Wx)
+    
+    # theta[2] - trzecia oś
+    cos_theta2 = (r * r + s * s - A2 * A2 - D4 * D4) / (2 * A2 * D4)
+    # Zabezpieczenie przed błędami numerycznymi
+    cos_theta2 = np.clip(cos_theta2, -1.0, 1.0)
+    theta[2] = np.arctan2(-np.sqrt(1 - cos_theta2 * cos_theta2), cos_theta2)
+    
+    # theta[1] - druga oś
+    k1 = A2 + D4 * np.cos(theta[2])
+    k2 = D4 * np.sin(theta[2])
+    theta[1] = np.arctan2(s, r) - np.arctan2(k2, k1)
+    
+    theta[2] += np.pi / 2
+    
+    # Orientacja końcówki
+    ax = (r13 * np.cos(theta[0]) * np.cos(theta[1] + theta[2]) +
+          r23 * np.cos(theta[1] + theta[2]) * np.sin(theta[0]) +
+          r33 * np.sin(theta[1] + theta[2]))
+    ay = -r23 * np.cos(theta[0]) + r13 * np.sin(theta[0])
+    az = (-r33 * np.cos(theta[1] + theta[2]) +
+          r13 * np.cos(theta[0]) * np.sin(theta[1] + theta[2]) +
+          r23 * np.sin(theta[0]) * np.sin(theta[1] + theta[2]))
+    sz = (-r32 * np.cos(theta[1] + theta[2]) +
+          r12 * np.cos(theta[0]) * np.sin(theta[1] + theta[2]) +
+          r22 * np.sin(theta[0]) * np.sin(theta[1] + theta[2]))
+    nz = (-r31 * np.cos(theta[1] + theta[2]) +
+          r11 * np.cos(theta[0]) * np.sin(theta[1] + theta[2]) +
+          r21 * np.sin(theta[0]) * np.sin(theta[1] + theta[2]))
+    
+    epsilon = 0.1
+    if abs(ax) < epsilon:
+        ax += epsilon if ax >= 0 else -epsilon
+    if abs(ay) < epsilon:
+        ay += epsilon if ay >= 0 else -epsilon
+    
+    # Osie nadgarstka (theta[3], theta[4], theta[5])
+    if True:  # Warunek Wz>20 - można dostosować
+        theta[3] = np.arctan2(-ay, -ax)
+        theta[4] = np.arctan2(-np.sqrt(ax * ax + ay * ay), az)
+        theta[5] = np.arctan2(-sz, nz)
+    else:
+        theta[3] = np.arctan2(-ay, ax)
+        theta[4] = np.arctan2(np.sqrt(ax * ax + ay * ay), az)
+        theta[5] = np.arctan2(sz, -nz)
+
+    theta[3] += np.pi / 2
+    theta[4] += np.pi / 2
+    theta[5] += np.pi / 2
+    
+    
+    for i in range(6):
+        theta[i] = np.degrees(theta[i])
+    
+    return tuple(theta)
+
