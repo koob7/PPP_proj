@@ -39,7 +39,7 @@ from tabs import (
     ForwardKinematicsTab,
     InverseKinematicsTab,
 )
-from fk_helper import ROBOT_DH_PARAMS, dh_matrix, mat4_mul, pose_from_transform, calculate_ik
+from fk_helper import ROBOT_DH_PARAMS, dh_matrix, mat4_mul, pose_from_transform, calculate_ik, calculate_ik2
 
 class StepViewer:
     def __init__(
@@ -266,7 +266,7 @@ class StepViewer:
 
 
         for i in range(6):
-            axis_values[i] += 0.001 #to prevent singularity
+            axis_values[i] += 0.01 #to prevent singularity
 
         logger.info(f"Kinematyka prosta - wartości osi: {axis_values}")
         print("Joint 0 pos: x=0.00, y=0.00, z=0.00, a=0.00, b=0.00, c=0.00")
@@ -279,8 +279,7 @@ class StepViewer:
             dh[i] = dh_matrix(ROBOT_DH_PARAMS[i][0], ROBOT_DH_PARAMS[i][1], ROBOT_DH_PARAMS[i][2], math.radians(axis_values[i]))
 
         tr[0] = dh[0]
-        tr[1] = mat4_mul(dh[0], dh[1])
-        for i in range(2,6):
+        for i in range(1,6):
             tr[i] = mat4_mul(tr[i-1], dh[i])
 
         pos = pose_from_transform(tr[0], degrees=True)
@@ -304,7 +303,7 @@ class StepViewer:
 
         pos = pose_from_transform(tr[5], degrees=True)
         x, y, z, a, b, c = pos
-        self.forward_kinematics_tab.set_pose_numbers(x, y, z, a, b, c)
+        self.forward_kinematics_tab.set_pose_numbers(x, y, z, a, b, c) # Z Y X
         return pos
 
     def _on_forward_kinematics_change(self) -> None:

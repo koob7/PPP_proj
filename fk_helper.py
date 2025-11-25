@@ -61,39 +61,37 @@ def pose_from_transform(T: np.ndarray, degrees: bool = True):
     r21, r22, r23 = R[1, 0], R[1, 1], R[1, 2]
     r31, r32, r33 = R[2, 0], R[2, 1], R[2, 2]
 
-    den = np.hypot(r32, r33)  # sqrt(r32^2 + r33^2)
-    b = np.arctan2(-r31, den)
+    den = np.sqrt(1-r31*r31)  # sqrt(r32^2 + r33^2)
+    b_ang = np.arctan2(-r31, den)
 
     # Wybór gałęzi wg obrazu (dla zakresu b)
-    if np.cos(b) >= 0:  # b \in (-pi/2, pi/2)
-        a_ang = np.arctan2(r21, r11)
-        c_ang = np.arctan2(r32, r33)
-    else:  # b \in (pi/2, 3pi/2)
-        a_ang = np.arctan2(-r21, -r11)
-        b = np.arctan2(-r31, -den)
-        c_ang = np.arctan2(-r32, -r33)
+
+    a_ang = np.arctan2(r21, r11)
+    c_ang = np.arctan2(r32, r33)
+
+
 
     if degrees:
         
-        a_out = np.degrees(a_ang)   #wokół osi Z
-        b_out = np.degrees(b)       #wokół osi X
-        c_out = np.degrees(c_ang)   #wokół osi Y
+        a_out = np.degrees(a_ang)  
+        b_out = np.degrees(b_ang)  
+        c_out = np.degrees(c_ang)  
     else:
-        a_out, b_out, c_out = a_ang, c_ang, b# wychodzi że x jest zamieniony z Y
+        a_out, b_out, c_out = a_ang, b_ang, c_ang
 
-    return float(x), float(y), float(z), float(a_out), float(b_out), float(c_out)
+    return float(x), float(y), float(z), float(a_out), float(b_out), float(c_out) # obrót wokół ZYX
 
 
-def calculate_ik(x: float, y: float, z: float, phi: float, theta_rotation: float, psi: float) -> tuple[float, float, float, float, float, float]:
+def calculate_ik(x: float, y: float, z: float, phi_in: float, theta_rotation_in: float, psi_in: float) -> tuple[float, float, float, float, float, float]:
 
     
     theta = [0.0] * 6
     
     # Konwersja kątów orientacji ze stopni na radiany
-    phi = phi * np.pi / 180
-    theta_rotation = theta_rotation * np.pi / 180
-    psi = psi * np.pi / 180
-    
+    phi = np.deg2rad(phi_in)
+    theta_rotation = np.deg2rad(theta_rotation_in)
+    psi = np.deg2rad(psi_in)
+
     # Macierz rotacji z kątów Eulera
     r11 = np.cos(phi) * np.sin(theta_rotation) * np.cos(psi) + np.sin(phi) * np.sin(psi)
     r21 = np.sin(phi) * np.sin(theta_rotation) * np.cos(psi) - np.cos(phi) * np.sin(psi)
@@ -119,15 +117,12 @@ def calculate_ik(x: float, y: float, z: float, phi: float, theta_rotation: float
     
     # theta[2] - trzecia oś
     cos_theta2 = (r * r + s * s - A2 * A2 - D4 * D4) / (2 * A2 * D4)
-    # Zabezpieczenie przed błędami numerycznymi
-    cos_theta2 = np.clip(cos_theta2, -1.0, 1.0)
     theta[2] = np.arctan2(-np.sqrt(1 - cos_theta2 * cos_theta2), cos_theta2)
     
     # theta[1] - druga oś
     k1 = A2 + D4 * np.cos(theta[2])
     k2 = D4 * np.sin(theta[2])
     theta[1] = np.arctan2(s, r) - np.arctan2(k2, k1)
-    
     theta[2] += np.pi / 2
     
     # Orientacja końcówki
@@ -171,3 +166,16 @@ def calculate_ik(x: float, y: float, z: float, phi: float, theta_rotation: float
     
     return tuple(theta)
 
+
+
+def calculate_ik2(x: float, y: float, z: float, phi_in: float, theta_rotation_in: float, psi_in: float) -> tuple[float, float, float, float, float, float]:
+    
+    theta = [0.0] * 6
+
+
+    # Pozycja nadgarstka
+    Wx = x + D6 * r13
+    Wy = y - D6 * r23
+    Wz = z - D6 * r33
+
+    return tuple(theta)

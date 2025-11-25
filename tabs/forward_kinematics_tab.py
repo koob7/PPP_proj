@@ -9,6 +9,7 @@ from PyQt5.QtWidgets import (
     QLabel,
     QSlider,
     QLineEdit,
+    QPushButton,
 )
 from PyQt5.QtCore import Qt
 
@@ -37,6 +38,11 @@ class ForwardKinematicsTab(QWidget):
         title = QLabel("Kinematyka prosta - sterowanie osiami robota")
         title.setStyleSheet("font-weight: bold; font-size: 12pt;")
         layout.addWidget(title)
+
+        # Reset button
+        reset_btn = QPushButton("Resetuj osie")
+        reset_btn.clicked.connect(self._on_reset_clicked)
+        layout.addWidget(reset_btn)
         
         # Create 6 sliders for axes 1-6
         for i in range(1, 7):
@@ -109,10 +115,28 @@ class ForwardKinematicsTab(QWidget):
             slider.blockSignals(True)
             slider.setValue(int(value))
             slider.blockSignals(False)
+
+    def update_slider(self, axis: int, value: float):
+        """Update a single slider value."""
+        slider = self.axis_sliders.get(axis)
+        if slider:
+            slider.blockSignals(True)
+            slider.setValue(int(value))
+            slider.blockSignals(False)
     
     def reset_all_axes(self):
         """Reset all axes to 0."""
-        self.set_axis_values((0, 0, 0, 0, 0, 0))
+        # Set values with signals enabled so labels refresh
+        for i in range(1, 7):
+            slider = self.axis_sliders[i]
+            slider.blockSignals(False)
+            slider.setValue(0)
+        # Also update pose field via callback
+        self._handle_slider_change()
+
+    def _on_reset_clicked(self):
+        """Reset button handler."""
+        self.reset_all_axes()
 
     # --- Pose display helpers ---
     def set_pose_numbers(self, x: float, y: float, z: float, a: float, b: float, c: float) -> None:
