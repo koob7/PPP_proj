@@ -73,37 +73,37 @@ def pose_from_transform(T: np.ndarray, degrees: bool = True):
 
     if degrees:
         
-        a_out = np.degrees(a_ang)  
-        b_out = np.degrees(b_ang)  
-        c_out = np.degrees(c_ang)  
+        a_out = a_ang * 180 / np.pi
+        b_out = b_ang * 180 / np.pi
+        c_out = c_ang * 180 / np.pi
     else:
         a_out, b_out, c_out = a_ang, b_ang, c_ang
 
     return float(x), float(y), float(z), float(a_out), float(b_out), float(c_out) # obrót wokół ZYX
 
 
-def calculate_ik(x: float, y: float, z: float, phi_in: float, theta_rotation_in: float, psi_in: float) -> tuple[float, float, float, float, float, float]:
+def calculate_ik(x: float, y: float, z: float, phi_in: float, beta_in: float, psi_in: float) -> tuple[float, float, float, float, float, float]:
 
     
     theta = [0.0] * 6
     
     # Konwersja kątów orientacji ze stopni na radiany
     phi = np.deg2rad(phi_in)
-    theta_rotation = np.deg2rad(theta_rotation_in)
+    beta = np.deg2rad(beta_in)
     psi = np.deg2rad(psi_in)
 
     # Macierz rotacji z kątów Eulera
-    r11 = np.cos(phi) * np.sin(theta_rotation) * np.cos(psi) + np.sin(phi) * np.sin(psi)
-    r21 = np.sin(phi) * np.sin(theta_rotation) * np.cos(psi) - np.cos(phi) * np.sin(psi)
-    r31 = np.cos(theta_rotation) * np.cos(psi)
+    r11 = np.cos(phi) * np.sin(beta) * np.cos(psi) + np.sin(phi) * np.sin(psi)
+    r21 = np.sin(phi) * np.sin(beta) * np.cos(psi) - np.cos(phi) * np.sin(psi)
+    r31 = np.cos(beta) * np.cos(psi)
     
-    r12 = np.cos(phi) * np.cos(theta_rotation)
-    r22 = np.sin(phi) * np.cos(theta_rotation)
-    r32 = -np.sin(theta_rotation)
+    r12 = np.cos(phi) * np.cos(beta)
+    r22 = np.sin(phi) * np.cos(beta)
+    r32 = -np.sin(beta)
     
-    r13 = np.cos(phi) * np.sin(theta_rotation) * np.sin(psi) - np.sin(phi) * np.cos(psi)
-    r23 = np.sin(phi) * np.sin(theta_rotation) * np.sin(psi) + np.cos(phi) * np.cos(psi)
-    r33 = np.cos(theta_rotation) * np.sin(psi)
+    r13 = np.cos(phi) * np.sin(beta) * np.sin(psi) - np.sin(phi) * np.cos(psi)
+    r23 = np.sin(phi) * np.sin(beta) * np.sin(psi) + np.cos(phi) * np.cos(psi)
+    r33 = np.cos(beta) * np.sin(psi)
     
     # Pozycja nadgarstka
     Wx = x - D6 * r13
@@ -168,14 +168,108 @@ def calculate_ik(x: float, y: float, z: float, phi_in: float, theta_rotation_in:
 
 
 
-def calculate_ik2(x: float, y: float, z: float, phi_in: float, theta_rotation_in: float, psi_in: float) -> tuple[float, float, float, float, float, float]:
+def calculate_ik2(x: float, y: float, z: float, phi_in: float, beta_in: float, psi_in: float) -> tuple[float, float, float, float, float, float]:
     
     theta = [0.0] * 6
 
+    phi_in += 0.001
+    beta_in += 0.001
+    psi_in += 0.001
+    
+    # Konwersja kątów orientacji ze stopni na radiany
+    phi = phi_in*np.pi/180
+    beta = beta_in*np.pi/180
+    psi = psi_in*np.pi/180
 
-    # Pozycja nadgarstka
-    Wx = x + D6 * r13
+    c_alfa, s_alfa = np.cos(phi), np.sin(phi)
+    c_beta, s_beta = np.cos(beta), np.sin(beta)
+    c_delta, s_delta = np.cos(psi), np.sin(psi)
+
+    #wiersz, kolumna
+    # r11 = c_alfa * c_beta
+    # r12 = c_alfa * s_beta * s_delta - c_delta * s_alfa
+    # r13 = s_alfa * s_delta + c_alfa * c_delta *s_beta
+
+    # r21 = c_beta * s_alfa
+    # r22 = c_alfa * c_delta + s_alfa * s_beta * s_delta
+    # r23 = c_delta * s_alfa * s_beta - c_alfa * s_delta
+
+    # r31 = -s_beta
+    # r32 = c_beta * s_delta
+    # r33 = c_beta * c_delta
+
+    r11 = c_alfa*s_beta*c_delta+s_alfa*s_beta
+    r21 = s_alfa*s_beta*c_delta-c_alfa*s_delta
+    r31 = c_beta*c_delta
+
+    r13 = c_alfa*c_beta
+    r23 = s_alfa*c_beta
+    r33 = -s_beta
+
+    r12 = c_alfa*s_beta*s_delta-s_alfa*c_delta
+    r22 = s_alfa*s_beta*s_delta+c_alfa*c_beta
+    r32 = c_beta*s_delta
+
+    
+
+    # Pozycja nadgarstka ????
+    Wx = x - D6 * r13
     Wy = y - D6 * r23
     Wz = z - D6 * r33
+    r = np.sqrt(Wx * Wx + Wy * Wy)
+    s = Wz - D1
+
+
+
+    # theta[0] - pierwsza oś
+    theta[0] = np.arctan2(Wy, Wx)
+    
+    # theta[2] - trzecia oś
+    cos_theta2 = (r * r + s * s - A2 * A2 - D4 * D4) / (2 * A2 * D4)
+    theta[2] = np.arctan2(-np.sqrt(1 - cos_theta2 * cos_theta2), cos_theta2)
+    
+    # theta[1] - druga oś
+    k1 = A2 + D4 * np.cos(theta[2])
+    k2 = D4 * np.sin(theta[2])
+    theta[1] = np.arctan2(s, r) - np.arctan2(k2, k1)
+    theta[2] += np.pi / 2
+    #nx sx ax
+    #ny sy ay
+    #nz sz az
+
+    ax = r33*np.sin(theta[1]+theta[2]) + r13*np.cos(theta[1]+theta[2])*np.cos(theta[0]) + r23*np.cos(theta[1]+theta[2])*np.sin(theta[0])
+    ay = r13*np.sin(theta[0]) - r23*np.cos(theta[0])
+    az = r13*np.sin(theta[1] + theta[2])*np.cos(theta[0]) - r33*np.cos(theta[1] + theta[2]) + r23*np.sin(theta[1] + theta[2])*np.sin(theta[0])
+    sz = r12*np.sin(theta[1] + theta[2])*np.cos(theta[0]) - r32*np.cos(theta[1] + theta[2]) + r22*np.sin(theta[1] + theta[2])*np.sin(theta[0])
+    nz = r11*np.sin(theta[1] + theta[2])*np.cos(theta[0]) - r31*np.cos(theta[1] + theta[2]) + r21*np.sin(theta[1] + theta[2])*np.sin(theta[0])
+
+    # theta[3] = np.arctan2(ax,ay)
+    # theta[4] = np.arctan2(az, np.sqrt(1 - az*az))
+    # theta[5] = np.arctan2(sz, -nz)
+
+    theta[3] = np.arctan2(ay,ax)
+    #theta[4] = np.arctan2(-az, -np.sqrt(1 - az*az))
+    theta[4] = np.atan2(np.sqrt(ax*ax+ay*ay),az)
+    theta[5] = np.arctan2(sz, -nz)
+
+    #theta[4] = -theta[4]
+
+
+
+    # sz = r12*np.sin(theta[1] + theta[2])*np.cos(theta[0]) - r32*np.cos(theta[1] + theta[2]) + r22*np.sin(theta[1] + theta[2])*np.sin(theta[0]) 
+    # az = r13*np.sin(theta[1] + theta[2])*np.cos(theta[0]) - r33*np.cos(theta[1] + theta[2]) + r23*np.sin(theta[1] + theta[2])*np.sin(theta[0])
+    # nx = r31*np.cos(theta[1] + theta[2]) + r11*np.cos(theta[1] + theta[2])*np.cos(theta[0]) + r21*np.cos(theta[1] + theta[2])*np.sin(theta[0])
+    # ny = r11*np.sin(theta[0]) - r21*np.cos(theta[0])
+    # nz = r11*np.sin(theta[1] + theta[2])*np.cos(theta[0]) - r31*np.cos(theta[1] + theta[2]) + r21*np.sin(theta[1] + theta[2])*np.cos(theta[0])
+
+
+    # theta[3] = np.arctan2(sz, az)
+    # theta[4] = np.arctan2(-nz, np.sqrt(1 - nz*nz))
+    # theta[5] = np.arctan2(ny, nx)
+
+    
+    
+    for i in range(6):
+        theta[i] = theta[i]*180/np.pi
 
     return tuple(theta)

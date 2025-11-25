@@ -268,7 +268,7 @@ class StepViewer:
         for i in range(6):
             axis_values[i] += 0.01 #to prevent singularity
 
-        logger.info(f"Kinematyka prosta - wartości osi: {axis_values}")
+        logger.info(f"Kinematyka prosta - wartości osi: {np.float32(axis_values)}")
         print("Joint 0 pos: x=0.00, y=0.00, z=0.00, a=0.00, b=0.00, c=0.00")
 
 
@@ -323,7 +323,7 @@ class StepViewer:
         
         try:
             # Oblicz kąty osi z kinematyki odwrotnej
-            o1, o2, o3, o4, o5, o6 = calculate_ik(x, y, z, a, b, c)
+            o1, o2, o3, o4, o5, o6 = calculate_ik2(x, y, z, a, b, c)
             
             # Oblicz faktyczną osiągniętą pozycję przez kinematykę prostą
             x1, y1, z1, a1, b1, c1 = self.apply_forward_kinematics((o1, o2, o3, o4, o5, o6))
