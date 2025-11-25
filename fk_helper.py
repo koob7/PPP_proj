@@ -199,16 +199,16 @@ def calculate_ik2(x: float, y: float, z: float, phi_in: float, beta_in: float, p
     # r33 = c_beta * c_delta
 
     r11 = c_alfa*s_beta*c_delta+s_alfa*s_beta
-    r21 = s_alfa*s_beta*c_delta-c_alfa*s_delta
-    r31 = c_beta*c_delta
-
-    r13 = c_alfa*c_beta
-    r23 = s_alfa*c_beta
-    r33 = -s_beta
-
     r12 = c_alfa*s_beta*s_delta-s_alfa*c_delta
+    r13 = c_alfa*c_beta
+
+    r21 = s_alfa*s_beta*c_delta-c_alfa*s_delta
     r22 = s_alfa*s_beta*s_delta+c_alfa*c_beta
+    r23 = s_alfa*c_beta
+
+    r31 = c_beta*c_delta
     r32 = c_beta*s_delta
+    r33 = -s_beta
 
     
 
