@@ -201,62 +201,7 @@ def calculate_ik2(x: float, y: float, z: float, phi_in: float, beta_in: float, p
     r13 = c_beta * c_delta
 
 
-    #ZYZ
-    # r22 = c_alfa*c_beta*c_delta - s_alfa*s_delta
-    # r21 = -c_alfa*c_beta*s_delta - s_alfa*c_delta
-    # r23 = c_alfa*s_beta
-
-    # r32 = c_alfa*s_delta + s_alfa*c_beta*c_delta
-    # r31 = -s_alfa*c_beta*s_delta + c_alfa*c_delta
-    # r33 = s_alfa*s_beta
-
-    # r12 = s_beta*s_delta
-    # r11 = c_delta*s_beta
-    # r13 = c_beta
-
-
-
-    #zmodyfikowane stare kody - działa!!!
-    # r11 = c_alfa*s_beta*c_delta+s_alfa*s_beta
-    # r12 = c_alfa*s_beta*s_delta-s_alfa*c_delta
-    # r13 = c_alfa*c_beta
-
-    # r21 = s_alfa*s_beta*c_delta-c_alfa*s_delta
-    # r22 = s_alfa*s_beta*s_delta+c_alfa*c_beta
-    # r23 = s_alfa*c_beta
-
-    # r31 = c_beta*c_delta
-    # r32 = c_beta*s_delta
-    # r33 = -s_beta
-
-
-    
-    # r12 = c_alfa*c_delta + s_alfa*s_beta*s_delta
-    # r11 = c_delta*s_alfa*s_beta - c_alfa*s_delta
-    # r13 = c_beta*s_alfa
-
-    # r22 = c_beta*s_delta
-    # r21 = c_beta*c_delta
-    # r23 = -s_beta
-
-    # r32 = c_alfa*s_beta*s_delta-c_delta*s_alfa
-    # r31 = c_alfa*c_delta*s_beta+s_alfa*s_delta
-    # r33 = c_alfa*c_beta
-
-    #stare kody
-    # r11 = c_alfa*s_beta*c_delta+s_alfa*s_beta
-    # r21 = s_alfa*s_beta*c_delta-c_alfa*s_delta
-    # r31 = c_beta*c_delta
-
-    # r12 = c_alfa*c_beta
-    # r22 = s_alfa*c_beta
-    # r32 = -s_beta
-
-    # r13 = c_alfa*s_beta*s_delta-s_alfa*c_delta
-    # r23 = s_alfa*s_beta*s_delta+c_alfa*c_beta
-    # r33 = c_beta*s_delta
-
-    # Pozycja nadgarstka ????
+    # Pozycja nadgarstka
     Wx = x - D6 * r13
     Wy = y - D6 * r23
     Wz = z - D6 * r33
@@ -278,7 +223,7 @@ def calculate_ik2(x: float, y: float, z: float, phi_in: float, beta_in: float, p
     theta[1] = np.arctan2(s, r) - np.arctan2(k2, k1)
     theta[2] += np.pi / 2
 
-    
+
     #nx sx ax
     #ny sy ay
     #nz sz az
