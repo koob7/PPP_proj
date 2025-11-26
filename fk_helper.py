@@ -61,7 +61,7 @@ def pose_from_transform(T: np.ndarray, degrees: bool = True):
     r21, r22, r23 = R[1, 0], R[1, 1], R[1, 2]
     r31, r32, r33 = R[2, 0], R[2, 1], R[2, 2]
 
-    den = np.sqrt(1-r31*r31)  # sqrt(r32^2 + r33^2)
+    den = np.sqrt(r32**2 + r33**2)
     b_ang = np.arctan2(-r31, den)
 
     # Wybór gałęzi wg obrazu (dla zakresu b)
@@ -188,16 +188,16 @@ def calculate_ik2(x: float, y: float, z: float, phi_in: float, beta_in: float, p
     #wiersz, kolumna
 
     #ZYX
-    r22 = c_alfa * c_beta
-    r21 = c_alfa * s_beta * s_delta - c_delta * s_alfa
+    r21 = c_alfa * c_beta
+    r22 = c_alfa * s_beta * s_delta - c_delta * s_alfa
     r23 = s_alfa * s_delta + c_alfa * c_delta *s_beta
 
-    r32 = c_beta * s_alfa
-    r31 = c_alfa * c_delta + s_alfa * s_beta * s_delta
+    r31 = c_beta * s_alfa
+    r32 = c_alfa * c_delta + s_alfa * s_beta * s_delta
     r33 = c_delta * s_alfa * s_beta - c_alfa * s_delta
 
-    r12 = -s_beta
-    r11 = c_beta * s_delta
+    r11 = -s_beta
+    r12 = c_beta * s_delta
     r13 = c_beta * c_delta
 
 
