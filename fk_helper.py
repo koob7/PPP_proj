@@ -61,7 +61,7 @@ def pose_from_transform(T: np.ndarray, degrees: bool = True):
     r21, r22, r23 = R[1, 0], R[1, 1], R[1, 2]
     r31, r32, r33 = R[2, 0], R[2, 1], R[2, 2]
 
-    den = np.sqrt(r32**2 + r33**2)
+    den = np.sqrt(r32**2 + r33**2)#????????????
     b_ang = np.arctan2(-r31, den)
 
     # Wybór gałęzi wg obrazu (dla zakresu b)

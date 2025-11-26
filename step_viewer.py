@@ -19,6 +19,17 @@ from geometry_helper import apply_transform_to_shape, apply_default_transforms, 
 import math
 import numpy as np
 
+import socket
+import struct
+
+APP_PORT = 6002
+APP_IP = '127.0.0.1'
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+def send(robot_id, a1, a2, a3, a4, a5, a6):
+    sock.sendto(struct.pack('<II6f', 2, robot_id, np.deg2rad(a1)-np.pi/2, np.deg2rad(a2)-np.pi/2, np.deg2rad(a3)-np.pi/2, np.deg2rad(a4)-np.pi/2, np.deg2rad(a5), np.deg2rad(a6)), (APP_IP, APP_PORT))
+
+
 # PyQt5
 from PyQt5.QtWidgets import (
     QApplication,
@@ -136,6 +147,10 @@ class StepViewer:
             self._sync_visibility_checkboxes()
         except Exception:
             pass
+        
+        send(1,0,0,0,0,0,0)
+        send(0,0,0,0,0,0,0)
+        sock.sendto(struct.pack('<II3f', 1, 0, 50.0, 0.0, 0.0), (APP_IP, APP_PORT))
 
     
     # -------------------------
@@ -208,18 +223,27 @@ class StepViewer:
     # --------------------------------------------------
     def _draw_axes(self):
         """Pomocnicza metoda do rysowania osi XYZ."""
-        axis_len = 200
+        axis_len = 400
         # X
         x_axis = BRepBuilderAPI_MakeEdge(gp_Pnt(-axis_len, 0, 0), gp_Pnt(axis_len, 0, 0)).Edge()
         self.display.DisplayShape(x_axis, color=rgb_color(1.0, 0.0, 0.0))
         # Y
         y_axis = BRepBuilderAPI_MakeEdge(gp_Pnt(0, -axis_len, 0), gp_Pnt(0, axis_len, 0)).Edge()
         self.display.DisplayShape(y_axis, color=rgb_color(0.0, 1.0, 0.0))
+
+        y_axis = BRepBuilderAPI_MakeEdge(gp_Pnt(250, -axis_len, 0), gp_Pnt(250, axis_len, 0)).Edge()
+        self.display.DisplayShape(y_axis, color=rgb_color(0.0, 1.0, 0.0))
         # Z
         z_axis = BRepBuilderAPI_MakeEdge(gp_Pnt(0, 0, -axis_len), gp_Pnt(0, 0, axis_len)).Edge()
         self.display.DisplayShape(z_axis, color=rgb_color(0.0, 0.0, 1.0))
+
+        z_axis = BRepBuilderAPI_MakeEdge(gp_Pnt(250, 0, -axis_len), gp_Pnt(250, 0, axis_len)).Edge()
+        self.display.DisplayShape(z_axis, color=rgb_color(0.0, 0.0, 1.0))
         # marker
         marker = BRepPrimAPI_MakeSphere(gp_Pnt(0, 0, 0), self.marker_radius).Shape()
+        self.display.DisplayShape(marker, color=rgb_color(1.0, 0.0, 0.0))
+
+        marker = BRepPrimAPI_MakeSphere(gp_Pnt(250, 0, 0), self.marker_radius).Shape()
         self.display.DisplayShape(marker, color=rgb_color(1.0, 0.0, 0.0))
 
 
@@ -264,6 +288,7 @@ class StepViewer:
         # Convert to list if tuple (tuples are immutable)
         axis_values = list(axis_values)
 
+        send(1, *axis_values)
 
         for i in range(6):
             axis_values[i] += 0.01 #to prevent singularity
@@ -304,6 +329,9 @@ class StepViewer:
         pos = pose_from_transform(tr[5], degrees=True)
         x, y, z, a, b, c = pos
         self.forward_kinematics_tab.set_pose_numbers(x, y, z, a, b, c) # Z Y X
+
+        o1, o2, o3, o4, o5, o6 = calculate_ik2(x, y, z, a, b, c)
+        send(0, o1, o2, o3, o4, o5, o6)
         return pos
 
     def _on_forward_kinematics_change(self) -> None:
@@ -335,6 +363,7 @@ class StepViewer:
             
             # Zaktualizuj suwaki kinematyki prostej z obliczonymi kątami
             self.forward_kinematics_tab.set_axis_values((o1, o2, o3, o4, o5, o6))
+
             
             logger.info(f"IK solved: θ=({o1:.2f}, {o2:.2f}, {o3:.2f}, {o4:.2f}, {o5:.2f}, {o6:.2f})°")
             
