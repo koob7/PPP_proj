@@ -186,31 +186,75 @@ def calculate_ik2(x: float, y: float, z: float, phi_in: float, beta_in: float, p
     c_delta, s_delta = np.cos(psi), np.sin(psi)
 
     #wiersz, kolumna
-    # r11 = c_alfa * c_beta
-    # r12 = c_alfa * s_beta * s_delta - c_delta * s_alfa
-    # r13 = s_alfa * s_delta + c_alfa * c_delta *s_beta
 
-    # r21 = c_beta * s_alfa
-    # r22 = c_alfa * c_delta + s_alfa * s_beta * s_delta
-    # r23 = c_delta * s_alfa * s_beta - c_alfa * s_delta
+    #ZYX
+    r22 = c_alfa * c_beta
+    r21 = c_alfa * s_beta * s_delta - c_delta * s_alfa
+    r23 = s_alfa * s_delta + c_alfa * c_delta *s_beta
 
-    # r31 = -s_beta
-    # r32 = c_beta * s_delta
-    # r33 = c_beta * c_delta
+    r32 = c_beta * s_alfa
+    r31 = c_alfa * c_delta + s_alfa * s_beta * s_delta
+    r33 = c_delta * s_alfa * s_beta - c_alfa * s_delta
 
-    r11 = c_alfa*s_beta*c_delta+s_alfa*s_beta
-    r12 = c_alfa*s_beta*s_delta-s_alfa*c_delta
-    r13 = c_alfa*c_beta
+    r12 = -s_beta
+    r11 = c_beta * s_delta
+    r13 = c_beta * c_delta
 
-    r21 = s_alfa*s_beta*c_delta-c_alfa*s_delta
-    r22 = s_alfa*s_beta*s_delta+c_alfa*c_beta
-    r23 = s_alfa*c_beta
 
-    r31 = c_beta*c_delta
-    r32 = c_beta*s_delta
-    r33 = -s_beta
+    #ZYZ
+    # r22 = c_alfa*c_beta*c_delta - s_alfa*s_delta
+    # r21 = -c_alfa*c_beta*s_delta - s_alfa*c_delta
+    # r23 = c_alfa*s_beta
+
+    # r32 = c_alfa*s_delta + s_alfa*c_beta*c_delta
+    # r31 = -s_alfa*c_beta*s_delta + c_alfa*c_delta
+    # r33 = s_alfa*s_beta
+
+    # r12 = s_beta*s_delta
+    # r11 = c_delta*s_beta
+    # r13 = c_beta
+
+
+
+    #zmodyfikowane stare kody - działa!!!
+    # r11 = c_alfa*s_beta*c_delta+s_alfa*s_beta
+    # r12 = c_alfa*s_beta*s_delta-s_alfa*c_delta
+    # r13 = c_alfa*c_beta
+
+    # r21 = s_alfa*s_beta*c_delta-c_alfa*s_delta
+    # r22 = s_alfa*s_beta*s_delta+c_alfa*c_beta
+    # r23 = s_alfa*c_beta
+
+    # r31 = c_beta*c_delta
+    # r32 = c_beta*s_delta
+    # r33 = -s_beta
+
 
     
+    # r12 = c_alfa*c_delta + s_alfa*s_beta*s_delta
+    # r11 = c_delta*s_alfa*s_beta - c_alfa*s_delta
+    # r13 = c_beta*s_alfa
+
+    # r22 = c_beta*s_delta
+    # r21 = c_beta*c_delta
+    # r23 = -s_beta
+
+    # r32 = c_alfa*s_beta*s_delta-c_delta*s_alfa
+    # r31 = c_alfa*c_delta*s_beta+s_alfa*s_delta
+    # r33 = c_alfa*c_beta
+
+    #stare kody
+    # r11 = c_alfa*s_beta*c_delta+s_alfa*s_beta
+    # r21 = s_alfa*s_beta*c_delta-c_alfa*s_delta
+    # r31 = c_beta*c_delta
+
+    # r12 = c_alfa*c_beta
+    # r22 = s_alfa*c_beta
+    # r32 = -s_beta
+
+    # r13 = c_alfa*s_beta*s_delta-s_alfa*c_delta
+    # r23 = s_alfa*s_beta*s_delta+c_alfa*c_beta
+    # r33 = c_beta*s_delta
 
     # Pozycja nadgarstka ????
     Wx = x - D6 * r13
@@ -233,6 +277,8 @@ def calculate_ik2(x: float, y: float, z: float, phi_in: float, beta_in: float, p
     k2 = D4 * np.sin(theta[2])
     theta[1] = np.arctan2(s, r) - np.arctan2(k2, k1)
     theta[2] += np.pi / 2
+
+    
     #nx sx ax
     #ny sy ay
     #nz sz az
@@ -243,30 +289,10 @@ def calculate_ik2(x: float, y: float, z: float, phi_in: float, beta_in: float, p
     sz = r12*np.sin(theta[1] + theta[2])*np.cos(theta[0]) - r32*np.cos(theta[1] + theta[2]) + r22*np.sin(theta[1] + theta[2])*np.sin(theta[0])
     nz = r11*np.sin(theta[1] + theta[2])*np.cos(theta[0]) - r31*np.cos(theta[1] + theta[2]) + r21*np.sin(theta[1] + theta[2])*np.sin(theta[0])
 
-    # theta[3] = np.arctan2(ax,ay)
-    # theta[4] = np.arctan2(az, np.sqrt(1 - az*az))
-    # theta[5] = np.arctan2(sz, -nz)
 
     theta[3] = np.arctan2(ay,ax)
-    #theta[4] = np.arctan2(-az, -np.sqrt(1 - az*az))
     theta[4] = np.atan2(np.sqrt(ax*ax+ay*ay),az)
     theta[5] = np.arctan2(sz, -nz)
-
-    #theta[4] = -theta[4]
-
-
-
-    # sz = r12*np.sin(theta[1] + theta[2])*np.cos(theta[0]) - r32*np.cos(theta[1] + theta[2]) + r22*np.sin(theta[1] + theta[2])*np.sin(theta[0]) 
-    # az = r13*np.sin(theta[1] + theta[2])*np.cos(theta[0]) - r33*np.cos(theta[1] + theta[2]) + r23*np.sin(theta[1] + theta[2])*np.sin(theta[0])
-    # nx = r31*np.cos(theta[1] + theta[2]) + r11*np.cos(theta[1] + theta[2])*np.cos(theta[0]) + r21*np.cos(theta[1] + theta[2])*np.sin(theta[0])
-    # ny = r11*np.sin(theta[0]) - r21*np.cos(theta[0])
-    # nz = r11*np.sin(theta[1] + theta[2])*np.cos(theta[0]) - r31*np.cos(theta[1] + theta[2]) + r21*np.sin(theta[1] + theta[2])*np.cos(theta[0])
-
-
-    # theta[3] = np.arctan2(sz, az)
-    # theta[4] = np.arctan2(-nz, np.sqrt(1 - nz*nz))
-    # theta[5] = np.arctan2(ny, nx)
-
     
     
     for i in range(6):
