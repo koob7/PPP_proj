@@ -108,12 +108,14 @@ class StepViewer:
         
         # Forward kinematics tab
         self.forward_kinematics_tab = ForwardKinematicsTab(
+            on_slider_released=self._on_forward_kinematics_released,
             on_slider_change=self._on_forward_kinematics_change,
         )
         tabs.addTab(self.forward_kinematics_tab, "kinematyka prosta")
         
         # Inverse kinematics tab
         self.inverse_kinematics_tab = InverseKinematicsTab(
+            on_slider_released=self._on_inverse_kinematics_released,
             on_slider_change=self._on_inverse_kinematics_change,
         )
         tabs.addTab(self.inverse_kinematics_tab, "kinematyka odwrotna")
@@ -281,7 +283,7 @@ class StepViewer:
             rotations[0]["angle_deg"],  # Z
         )
 
-    def apply_forward_kinematics(self, axis_values) -> Tuple[float, float, float, float, float, float]:
+    def apply_forward_kinematics(self, axis_values, verbos) -> Tuple[float, float, float, float, float, float]:
         """Handle forward kinematics slider changes."""
         self.forward_kinematics_tab.set_axis_values(tuple(round(v) for v in axis_values))
 
@@ -309,21 +311,23 @@ class StepViewer:
 
         pos = pose_from_transform(tr[0], degrees=True)
         x, y, z, a, b, c = pos
-        print(f"Joint 1 pos: x={x:.2f}, y={y:.2f}, z={z:.2f}, a={a:.2f}, b=0.00, c=0.00")
-        self.transforms_table[1]['rotations'][0]['angle_deg'] = a  # Z
-        self.update_shape(1)
+        if (verbos):
+            print(f"Joint 1 pos: x={x:.2f}, y={y:.2f}, z={z:.2f}, a={a:.2f}, b=0.00, c=0.00")
+            self.transforms_table[1]['rotations'][0]['angle_deg'] = a  # Z
+            self.update_shape(1)
 
 
         for i in range(1,6):
             pos2 = pose_from_transform(tr[i], degrees=True)
-            x, y, z, a, b, c = pos
-            x2, y2, z2, a2, b2, c2 = pos2
-            self.transforms_table[i+1]['translate'] = (x, y, z)
-            self.transforms_table[i+1]['rotations'][0]['angle_deg'] = a2  # Z
-            self.transforms_table[i+1]['rotations'][1]['angle_deg'] = b2  # Y 
-            self.transforms_table[i+1]['rotations'][2]['angle_deg'] = c2  # X
-            self.update_shape(i+1)
-            print(f"Joint {i+1} pos: x={x:.2f}, y={y:.2f}, z={z:.2f}, a={a2:.2f}, b={b2:.2f}, c={c2:.2f}")
+            if(verbos):
+                x, y, z, a, b, c = pos
+                x2, y2, z2, a2, b2, c2 = pos2
+                self.transforms_table[i+1]['translate'] = (x, y, z)
+                self.transforms_table[i+1]['rotations'][0]['angle_deg'] = a2  # Z
+                self.transforms_table[i+1]['rotations'][1]['angle_deg'] = b2  # Y 
+                self.transforms_table[i+1]['rotations'][2]['angle_deg'] = c2  # X
+                self.update_shape(i+1)
+                print(f"Joint {i+1} pos: x={x:.2f}, y={y:.2f}, z={z:.2f}, a={a2:.2f}, b={b2:.2f}, c={c2:.2f}")
             pos = pos2
 
         pos = pose_from_transform(tr[5], degrees=True)
@@ -334,14 +338,14 @@ class StepViewer:
         send(0, o1, o2, o3, o4, o5, o6)
         return pos
 
-    def _on_forward_kinematics_change(self) -> None:
+    def _on_forward_kinematics_released(self) -> None:
         """Handle forward kinematics slider changes."""
-        x, y, z, a, b, c = self.apply_forward_kinematics(list(self.forward_kinematics_tab.get_axis_values()))
+        x, y, z, a, b, c = self.apply_forward_kinematics(list(self.forward_kinematics_tab.get_axis_values()), True)
         self.inverse_kinematics_tab.set_pose_desired_numbers(x, y, z, a, b, c)
         self.inverse_kinematics_tab.set_pose_achieved_numbers(x, y, z, a, b, c)
         self.inverse_kinematics_tab.set_target_pose_values((x, y, z, a, b, c))
 
-    def _on_inverse_kinematics_change(self) -> None:
+    def _on_inverse_kinematics_released(self) -> None:
         """Handle inverse kinematics target changes and update robot pose."""
         if not hasattr(self, "inverse_kinematics_tab"):
             return
@@ -354,7 +358,8 @@ class StepViewer:
             o1, o2, o3, o4, o5, o6 = calculate_ik2(x, y, z, a, b, c)
             
             # Oblicz faktyczną osiągniętą pozycję przez kinematykę prostą
-            x1, y1, z1, a1, b1, c1 = self.apply_forward_kinematics((o1, o2, o3, o4, o5, o6))
+            x1, y1, z1, a1, b1, c1 = self.apply_forward_kinematics((o1, o2, o3, o4, o5, o6), True)
+            send(0, o1, o2, o3, o4, o5, o6)
             
             # Zaktualizuj wyświetlane pola
             self.inverse_kinematics_tab.set_pose_desired_numbers(x, y, z, a, b, c)
@@ -371,6 +376,18 @@ class StepViewer:
             logger.error(f"Błąd obliczania IK: {e}")
             # W razie błędu pokaż zerowe wartości
             self.inverse_kinematics_tab.set_pose_achieved_numbers(0, 0, 0, 0, 0, 0)
+
+
+
+    def _on_forward_kinematics_change(self) -> None:
+        x, y, z, a, b, c = self.apply_forward_kinematics(list(self.forward_kinematics_tab.get_axis_values()), False)
+        o1, o2, o3, o4, o5, o6 = calculate_ik2(x, y, z, a, b, c)
+        send(0, o1, o2, o3, o4, o5, o6)
+
+    
+    def _on_inverse_kinematics_change(self) -> None:
+        o1, o2, o3, o4, o5, o6 = calculate_ik2(*self.inverse_kinematics_tab.get_target_pose_values())
+        send(0, o1, o2, o3, o4, o5, o6)
 
     def _on_visibility_changed(self, idx: int, state: int) -> None:
         # aktualizacja widoczności i odrysowanie sceny

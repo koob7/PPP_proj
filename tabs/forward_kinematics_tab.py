@@ -21,10 +21,12 @@ class ForwardKinematicsTab(QWidget):
     
     def __init__(
         self,
+        on_slider_released: Optional[Callable] = None,
         on_slider_change: Optional[Callable] = None,
         parent: Optional[QWidget] = None,
     ):
         super().__init__(parent)
+        self.on_slider_released = on_slider_released
         self.on_slider_change = on_slider_change
         self.axis_sliders: Dict[int, QSlider] = {}
         self.pose_line = None
@@ -71,7 +73,8 @@ class ForwardKinematicsTab(QWidget):
             
             # Connect signals
             slider.valueChanged.connect(lambda v, lab=val_lbl: lab.setText(str(int(v))))
-            slider.sliderReleased.connect(self._handle_slider_change)
+            slider.valueChanged.connect(self._handle_slider_change)
+            slider.sliderReleased.connect(self._handle_slider_released)
             
             # Add widgets to row
             row_layout.addWidget(title_lbl)
@@ -98,6 +101,11 @@ class ForwardKinematicsTab(QWidget):
 
         # Add stretch at the end
         layout.addStretch(1)
+    
+    def _handle_slider_released(self):
+        """Handle slider change event."""
+        if self.on_slider_released:
+            self.on_slider_released()
     
     def _handle_slider_change(self):
         """Handle slider change event."""
@@ -132,7 +140,7 @@ class ForwardKinematicsTab(QWidget):
             slider.blockSignals(False)
             slider.setValue(0)
         # Also update pose field via callback
-        self._handle_slider_change()
+        self._handle_slider_released()
 
     def _on_reset_clicked(self):
         """Reset button handler."""

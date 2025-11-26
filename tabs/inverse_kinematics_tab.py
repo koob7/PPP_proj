@@ -20,10 +20,12 @@ class InverseKinematicsTab(QWidget):
 
     def __init__(
         self,
+        on_slider_released: Optional[Callable] = None,
         on_slider_change: Optional[Callable] = None,
         parent: Optional[QWidget] = None,
     ):
         super().__init__(parent)
+        self.on_slider_released = on_slider_released
         self.on_slider_change = on_slider_change
         self.sliders_translate: Dict[str, QSlider] = {}
         self.sliders_rotate: Dict[str, QSlider] = {}
@@ -61,7 +63,8 @@ class InverseKinematicsTab(QWidget):
             slider.setPageStep(10)
             slider.setObjectName(f"ik_translate_{axis}")
             slider.valueChanged.connect(lambda v, lab=val_lbl: lab.setText(str(int(v))))
-            slider.sliderReleased.connect(self._handle_slider_change)
+            slider.valueChanged.connect(self._handle_slider_change)
+            slider.sliderReleased.connect(self._handle_slider_released)
 
             row_layout.addWidget(title_lbl)
             row_layout.addWidget(slider, 1)
@@ -90,7 +93,8 @@ class InverseKinematicsTab(QWidget):
             slider.setPageStep(15)
             slider.setObjectName(f"ik_rotate_{axis}")
             slider.valueChanged.connect(lambda v, lab=val_lbl: lab.setText(str(int(v))))
-            slider.sliderReleased.connect(self._handle_slider_change)
+            slider.valueChanged.connect(self._handle_slider_change)
+            slider.sliderReleased.connect(self._handle_slider_released)
 
             row_layout.addWidget(title_lbl)
             row_layout.addWidget(slider, 1)
@@ -135,6 +139,11 @@ class InverseKinematicsTab(QWidget):
     # -----------------
     # Event handling
     # -----------------
+    def _handle_slider_released(self):
+        self._refresh_desired_readout()
+        if self.on_slider_released:
+            self.on_slider_released()
+
     def _handle_slider_change(self):
         self._refresh_desired_readout()
         if self.on_slider_change:
