@@ -188,17 +188,70 @@ def calculate_ik2(x: float, y: float, z: float, phi_in: float, beta_in: float, p
     #wiersz, kolumna
 
     #ZYX
-    r21 = c_alfa * c_beta
-    r22 = c_alfa * s_beta * s_delta - c_delta * s_alfa
-    r23 = s_alfa * s_delta + c_alfa * c_delta *s_beta
+    # r21 = c_alfa * c_beta
+    # r22 = c_alfa * s_beta * s_delta - c_delta * s_alfa
+    # r23 = s_alfa * s_delta + c_alfa * c_delta *s_beta
 
-    r31 = c_beta * s_alfa
-    r32 = c_alfa * c_delta + s_alfa * s_beta * s_delta
-    r33 = c_delta * s_alfa * s_beta - c_alfa * s_delta
+    # r31 = c_beta * s_alfa
+    # r32 = c_alfa * c_delta + s_alfa * s_beta * s_delta
+    # r33 = c_delta * s_alfa * s_beta - c_alfa * s_delta
 
-    r11 = -s_beta
-    r12 = c_beta * s_delta
-    r13 = c_beta * c_delta
+    # r11 = -s_beta
+    # r12 = c_beta * s_delta
+    # r13 = c_beta * c_delta
+
+    #XYZ
+    # r21 = c_beta * c_delta
+    # r22 = -s_beta
+    # r23 = c_beta * s_delta
+
+    # r31 = s_beta*s_delta + c_alfa*c_delta*s_beta
+    # r32 = c_alfa * c_beta
+    # r33 = -c_delta*s_alfa + c_alfa*s_beta*s_delta
+
+    # r11 = c_delta*s_alfa*s_beta - c_alfa*s_delta
+    # r12 = c_beta*s_alfa
+    # r13 = c_alfa*c_delta + s_alfa*s_beta*s_delta
+
+    #XYZ
+    # r21 = c_beta * c_delta
+    # r22 = -c_beta * s_delta
+    # r23 = s_beta
+
+    # r31 = c_alfa * s_delta + c_delta * s_alfa * s_beta
+    # r32 = c_alfa * c_delta - s_alfa * s_beta * s_delta
+    # r33 = -s_alfa * c_beta
+
+    # r11 = s_alfa * s_delta - c_alfa * c_delta * s_beta
+    # r12 = c_delta * s_alfa + c_alfa * s_beta * s_delta
+    # r13 = c_alfa * c_beta
+
+    #YXZ
+    r21 = c_alfa *c_delta + s_alfa * s_beta * s_delta
+    r22 = c_delta * s_alfa * s_beta - c_alfa * s_delta
+    r23 = c_beta * s_alfa
+
+    r31 = c_beta * s_delta
+    r32 = c_beta * c_delta
+    r33 = -s_beta
+
+    r11 = c_alfa * s_beta * s_delta - s_alfa * c_delta
+    r12 = c_alfa * c_delta * s_beta + s_alfa * s_delta
+    r13 = c_alfa * c_beta
+
+
+    #ZYZ
+    # r22 = c_alfa*c_beta*c_delta - s_alfa*s_delta
+    # r21 = -c_alfa*c_beta*s_delta - s_alfa*c_delta
+    # r23 = c_alfa*s_beta
+
+    # r32 = c_alfa*s_delta + s_alfa*c_beta*c_delta
+    # r31 = -s_alfa*c_beta*s_delta + c_alfa*c_delta
+    # r33 = s_alfa*s_beta
+
+    # r12 = s_beta*s_delta
+    # r11 = c_delta*s_beta
+    # r13 = c_beta
 
 
     # Pozycja nadgarstka

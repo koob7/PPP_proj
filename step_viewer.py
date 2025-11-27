@@ -152,7 +152,7 @@ class StepViewer:
         
         send(1,0,0,0,0,0,0)
         send(0,0,0,0,0,0,0)
-        sock.sendto(struct.pack('<II3f', 1, 0, 50.0, 0.0, 0.0), (APP_IP, APP_PORT))
+        sock.sendto(struct.pack('<II3f', 1, 0, -30.0, 0.0, 0.0), (APP_IP, APP_PORT))
 
     
     # -------------------------
@@ -300,7 +300,7 @@ class StepViewer:
 
 
         dh = np.array([np.eye(4) for _ in range(6)])
-        tr = np.array([np.eye(4) for _ in range(6)])
+        tr = np.array([np.eye(4) for _ in range(8)])
 
         for i in range(6):
             dh[i] = dh_matrix(ROBOT_DH_PARAMS[i][0], ROBOT_DH_PARAMS[i][1], ROBOT_DH_PARAMS[i][2], math.radians(axis_values[i]))
@@ -330,7 +330,22 @@ class StepViewer:
                 print(f"Joint {i+1} pos: x={x:.2f}, y={y:.2f}, z={z:.2f}, a={a2:.2f}, b={b2:.2f}, c={c2:.2f}")
             pos = pos2
 
-        pos = pose_from_transform(tr[5], degrees=True)
+        tr[6][:, 0] = tr[5][:, 2]
+        tr[6][:, 1] = tr[5][:, 0]
+        tr[6][:, 2] = tr[5][:, 1]
+
+        # tr[6][0, :] = tr[5][2, :]
+        # tr[6][1, :] = tr[5][0, :]
+        # tr[6][2, :] = tr[5][1, :]
+
+        # tr[7][0, :] = tr[6][2, :]
+        # tr[7][1, :] = tr[6][0, :]
+        # tr[7][2, :] = tr[6][1, :]
+
+
+        tr[6][:, 3] = tr[5][:, 3]
+
+        pos = pose_from_transform(tr[6], degrees=True)
         x, y, z, a, b, c = pos
         self.forward_kinematics_tab.set_pose_numbers(x, y, z, a, b, c) # Z Y X
 
