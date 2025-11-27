@@ -312,8 +312,10 @@ class StepViewer:
         pos = pose_from_transform(tr[0], degrees=True)
         x, y, z, a, b, c = pos
         if (verbos):
-            print(f"Joint 1 pos: x={x:.2f}, y={y:.2f}, z={z:.2f}, a={a:.2f}, b=0.00, c=0.00")
-            self.transforms_table[1]['rotations'][0]['angle_deg'] = a  # Z
+            print(f"Joint 1 pos: x={x:.2f}, y={y:.2f}, z={z:.2f}, a={a:.2f}, b={b:.2f}, c={c:.2f}")
+            self.transforms_table[1]['rotations'][0]['angle_deg'] = a
+            self.transforms_table[1]['rotations'][1]['angle_deg'] = b
+            self.transforms_table[1]['rotations'][2]['angle_deg'] = c
             self.update_shape(1)
 
 
@@ -461,10 +463,10 @@ class StepViewer:
                 {'origin': (0,0,0), 'axis': (0,1,0), 'angle_deg': 0},  # Y
                 {'origin': (0,0,0), 'axis': (1,0,0), 'angle_deg': 180},# X
             ]},
-            {'translate': (0,-3.04,60.90+82.9/2), 'rotations': [
+            {'translate': (0,60.90+82.9/2,3.04), 'rotations': [
                 {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': -180},
                 {'origin': (0,0,0), 'axis': (0,1,0), 'angle_deg': 0},
-                {'origin': (0,0,0), 'axis': (1,0,0), 'angle_deg': -90},
+                {'origin': (0,0,0), 'axis': (1,0,0), 'angle_deg': 0},
             ]},
             {'translate': (128.55,0,(39.40+38.9/2-3.5)), 'rotations': [
                 {'origin': (0,0,0), 'axis': (0,0,1), 'angle_deg': 90},
@@ -493,13 +495,15 @@ class StepViewer:
             ]},
         ]
 
+
+        # ułożenie jedynek w macierzy określa konwencję kolejnych obrotów
         self.transforms_table  = [
             {
                 'translate': (0.0, 0.0, 0.0),
                 'rotations': [
-                    {'origin': (0, 0, 0), 'axis': (0, 0, 1), 'angle_deg': 0.0},  # Z
+                    {'origin': (0, 0, 0), 'axis': (1, 0, 0), 'angle_deg': 0.0},  # Z
                     {'origin': (0, 0, 0), 'axis': (0, 1, 0), 'angle_deg': 0.0},  # Y
-                    {'origin': (0, 0, 0), 'axis': (1, 0, 0), 'angle_deg': 0.0},  # X
+                    {'origin': (0, 0, 0), 'axis': (0, 0, 1), 'angle_deg': 0.0},  # X
                 ],
             }
             for _ in range(7)

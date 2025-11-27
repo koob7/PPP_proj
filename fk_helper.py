@@ -61,13 +61,13 @@ def pose_from_transform(T: np.ndarray, degrees: bool = True):
     r21, r22, r23 = R[1, 0], R[1, 1], R[1, 2]
     r31, r32, r33 = R[2, 0], R[2, 1], R[2, 2]
 
-    den = np.sqrt(r32**2 + r33**2)#????????????
-    b_ang = np.arctan2(-r31, den)
+    den = np.sqrt(r11 ** 2 + r12 ** 2)
+    b_ang = np.arctan2(r13, den)
 
     # Wybór gałęzi wg obrazu (dla zakresu b)
 
-    a_ang = np.arctan2(r21, r11)
-    c_ang = np.arctan2(r32, r33)
+    a_ang = np.arctan2(-r23, r33)
+    c_ang = np.arctan2(-r12, r11)
 
 
 
@@ -213,31 +213,33 @@ def calculate_ik2(x: float, y: float, z: float, phi_in: float, beta_in: float, p
     # r12 = c_beta*s_alfa
     # r13 = c_alfa*c_delta + s_alfa*s_beta*s_delta
 
+
+    #zamiana kolumn obraca układ finalny względem zadanego
     #XYZ
-    # r21 = c_beta * c_delta
-    # r22 = -c_beta * s_delta
-    # r23 = s_beta
+    r13 = c_beta * c_delta
+    r11 = -c_beta * s_delta
+    r12 = s_beta
 
-    # r31 = c_alfa * s_delta + c_delta * s_alfa * s_beta
-    # r32 = c_alfa * c_delta - s_alfa * s_beta * s_delta
-    # r33 = -s_alfa * c_beta
+    r23 = c_alfa * s_delta + c_delta * s_alfa * s_beta
+    r21 = c_alfa * c_delta - s_alfa * s_beta * s_delta
+    r22 = -s_alfa * c_beta
 
-    # r11 = s_alfa * s_delta - c_alfa * c_delta * s_beta
-    # r12 = c_delta * s_alfa + c_alfa * s_beta * s_delta
-    # r13 = c_alfa * c_beta
+    r33 = s_alfa * s_delta - c_alfa * c_delta * s_beta
+    r31 = c_delta * s_alfa + c_alfa * s_beta * s_delta
+    r32 = c_alfa * c_beta
 
     #YXZ
-    r21 = c_alfa *c_delta + s_alfa * s_beta * s_delta
-    r22 = c_delta * s_alfa * s_beta - c_alfa * s_delta
-    r23 = c_beta * s_alfa
+    # r21 = c_alfa *c_delta + s_alfa * s_beta * s_delta
+    # r22 = c_delta * s_alfa * s_beta - c_alfa * s_delta
+    # r23 = c_beta * s_alfa
 
-    r31 = c_beta * s_delta
-    r32 = c_beta * c_delta
-    r33 = -s_beta
+    # r31 = c_beta * s_delta
+    # r32 = c_beta * c_delta
+    # r33 = -s_beta
 
-    r11 = c_alfa * s_beta * s_delta - s_alfa * c_delta
-    r12 = c_alfa * c_delta * s_beta + s_alfa * s_delta
-    r13 = c_alfa * c_beta
+    # r11 = c_alfa * s_beta * s_delta - s_alfa * c_delta
+    # r12 = c_alfa * c_delta * s_beta + s_alfa * s_delta
+    # r13 = c_alfa * c_beta
 
 
     #ZYZ
