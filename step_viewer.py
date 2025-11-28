@@ -300,7 +300,7 @@ class StepViewer:
 
 
         dh = np.array([np.eye(4) for _ in range(6)])
-        tr = np.array([np.eye(4) for _ in range(8)])
+        tr = np.array([np.eye(4) for _ in range(6)])
 
         for i in range(6):
             dh[i] = dh_matrix(ROBOT_DH_PARAMS[i][0], ROBOT_DH_PARAMS[i][1], ROBOT_DH_PARAMS[i][2], math.radians(axis_values[i]))
@@ -309,17 +309,10 @@ class StepViewer:
         for i in range(1,6):
             tr[i] = mat4_mul(tr[i-1], dh[i])
 
-        pos = pose_from_transform(tr[0], degrees=True)
-        x, y, z, a, b, c = pos
-        if (verbos):
-            print(f"Joint 1 pos: x={x:.2f}, y={y:.2f}, z={z:.2f}, a={a:.2f}, b={b:.2f}, c={c:.2f}")
-            self.transforms_table[1]['rotations'][0]['angle_deg'] = a
-            self.transforms_table[1]['rotations'][1]['angle_deg'] = b
-            self.transforms_table[1]['rotations'][2]['angle_deg'] = c
-            self.update_shape(1)
 
+        pos = 0, 0, 0, 0, 0, 0
 
-        for i in range(1,6):
+        for i in range(0,6):
             pos2 = pose_from_transform(tr[i], degrees=True)
             if(verbos):
                 x, y, z, a, b, c = pos
@@ -332,22 +325,18 @@ class StepViewer:
                 print(f"Joint {i+1} pos: x={x:.2f}, y={y:.2f}, z={z:.2f}, a={a2:.2f}, b={b2:.2f}, c={c2:.2f}")
             pos = pos2
 
-        tr[6][:, 0] = tr[5][:, 2]
-        tr[6][:, 1] = tr[5][:, 0]
-        tr[6][:, 2] = tr[5][:, 1]
 
-        # tr[6][0, :] = tr[5][2, :]
-        # tr[6][1, :] = tr[5][0, :]
-        # tr[6][2, :] = tr[5][1, :]
+        P = np.array([
+            [0, 1, 0, 0],
+            [0, 0, 1, 0],
+            [1, 0, 0, 0],
+            [0, 0, 0, 1]
+        ])
 
-        # tr[7][0, :] = tr[6][2, :]
-        # tr[7][1, :] = tr[6][0, :]
-        # tr[7][2, :] = tr[6][1, :]
+        tr[5] = tr[5] @ P
 
 
-        tr[6][:, 3] = tr[5][:, 3]
-
-        pos = pose_from_transform(tr[6], degrees=True)
+        pos = pose_from_transform(tr[5], degrees=True)
         x, y, z, a, b, c = pos
         self.forward_kinematics_tab.set_pose_numbers(x, y, z, a, b, c) # Z Y X
 

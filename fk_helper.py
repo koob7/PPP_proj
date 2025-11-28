@@ -57,18 +57,12 @@ def pose_from_transform(T: np.ndarray, degrees: bool = True):
     x, y, z = T[0, 3], T[1, 3], T[2, 3]
     R = T[:3, :3]
 
-    r11, r12, r13 = R[0, 0], R[0, 1], R[0, 2]
-    r21, r22, r23 = R[1, 0], R[1, 1], R[1, 2]
-    r31, r32, r33 = R[2, 0], R[2, 1], R[2, 2]
 
-    den = np.sqrt(r11 ** 2 + r12 ** 2)
-    b_ang = np.arctan2(r13, den)
+    den = np.sqrt(R[0, 0] ** 2 + R[0, 1] ** 2)
 
-    # Wybór gałęzi wg obrazu (dla zakresu b)
-
-    a_ang = np.arctan2(-r23, r33)
-    c_ang = np.arctan2(-r12, r11)
-
+    b_ang = np.arctan2(R[0, 2], den)
+    a_ang = np.arctan2(-R[1, 2], R[2, 2])
+    c_ang = np.arctan2(-R[0, 1], R[0, 0])
 
 
     if degrees:
@@ -185,81 +179,34 @@ def calculate_ik2(x: float, y: float, z: float, phi_in: float, beta_in: float, p
     c_beta, s_beta = np.cos(beta), np.sin(beta)
     c_delta, s_delta = np.cos(psi), np.sin(psi)
 
-    #wiersz, kolumna
+    em = np.eye(3)
+    P = np.array([
+        [0, 0, 1],
+        [1, 0, 0],
+        [0, 1, 0],
+    ])
 
-    #ZYX
-    # r21 = c_alfa * c_beta
-    # r22 = c_alfa * s_beta * s_delta - c_delta * s_alfa
-    # r23 = s_alfa * s_delta + c_alfa * c_delta *s_beta
-
-    # r31 = c_beta * s_alfa
-    # r32 = c_alfa * c_delta + s_alfa * s_beta * s_delta
-    # r33 = c_delta * s_alfa * s_beta - c_alfa * s_delta
-
-    # r11 = -s_beta
-    # r12 = c_beta * s_delta
-    # r13 = c_beta * c_delta
 
     #XYZ
-    # r21 = c_beta * c_delta
-    # r22 = -s_beta
-    # r23 = c_beta * s_delta
+    em[0, 0] = c_beta * c_delta
+    em[0, 1] = -c_beta * s_delta
+    em[0, 2] = s_beta
 
-    # r31 = s_beta*s_delta + c_alfa*c_delta*s_beta
-    # r32 = c_alfa * c_beta
-    # r33 = -c_delta*s_alfa + c_alfa*s_beta*s_delta
+    em[1, 0] = c_alfa * s_delta + c_delta * s_alfa * s_beta
+    em[1, 1] = c_alfa * c_delta - s_alfa * s_beta * s_delta
+    em[1, 2] = -s_alfa * c_beta
 
-    # r11 = c_delta*s_alfa*s_beta - c_alfa*s_delta
-    # r12 = c_beta*s_alfa
-    # r13 = c_alfa*c_delta + s_alfa*s_beta*s_delta
+    em[2, 0] = s_alfa * s_delta - c_alfa * c_delta * s_beta
+    em[2, 1] = c_delta * s_alfa + c_alfa * s_beta * s_delta
+    em[2, 2] = c_alfa * c_beta
 
-
-    #zamiana kolumn obraca układ finalny względem zadanego
-    #XYZ
-    r13 = c_beta * c_delta
-    r11 = -c_beta * s_delta
-    r12 = s_beta
-
-    r23 = c_alfa * s_delta + c_delta * s_alfa * s_beta
-    r21 = c_alfa * c_delta - s_alfa * s_beta * s_delta
-    r22 = -s_alfa * c_beta
-
-    r33 = s_alfa * s_delta - c_alfa * c_delta * s_beta
-    r31 = c_delta * s_alfa + c_alfa * s_beta * s_delta
-    r32 = c_alfa * c_beta
-
-    #YXZ
-    # r21 = c_alfa *c_delta + s_alfa * s_beta * s_delta
-    # r22 = c_delta * s_alfa * s_beta - c_alfa * s_delta
-    # r23 = c_beta * s_alfa
-
-    # r31 = c_beta * s_delta
-    # r32 = c_beta * c_delta
-    # r33 = -s_beta
-
-    # r11 = c_alfa * s_beta * s_delta - s_alfa * c_delta
-    # r12 = c_alfa * c_delta * s_beta + s_alfa * s_delta
-    # r13 = c_alfa * c_beta
-
-
-    #ZYZ
-    # r22 = c_alfa*c_beta*c_delta - s_alfa*s_delta
-    # r21 = -c_alfa*c_beta*s_delta - s_alfa*c_delta
-    # r23 = c_alfa*s_beta
-
-    # r32 = c_alfa*s_delta + s_alfa*c_beta*c_delta
-    # r31 = -s_alfa*c_beta*s_delta + c_alfa*c_delta
-    # r33 = s_alfa*s_beta
-
-    # r12 = s_beta*s_delta
-    # r11 = c_delta*s_beta
-    # r13 = c_beta
-
+    # wyrównanie układów współrzędnych względem siebie
+    em = em @ P
 
     # Pozycja nadgarstka
-    Wx = x - D6 * r13
-    Wy = y - D6 * r23
-    Wz = z - D6 * r33
+    Wx = x - D6 * em[0, 2]
+    Wy = y - D6 * em[1, 2]
+    Wz = z - D6 * em[2, 2]
     r = np.sqrt(Wx * Wx + Wy * Wy)
     s = Wz - D1
 
@@ -283,11 +230,11 @@ def calculate_ik2(x: float, y: float, z: float, phi_in: float, beta_in: float, p
     #ny sy ay
     #nz sz az
 
-    ax = r33*np.sin(theta[1]+theta[2]) + r13*np.cos(theta[1]+theta[2])*np.cos(theta[0]) + r23*np.cos(theta[1]+theta[2])*np.sin(theta[0])
-    ay = r13*np.sin(theta[0]) - r23*np.cos(theta[0])
-    az = r13*np.sin(theta[1] + theta[2])*np.cos(theta[0]) - r33*np.cos(theta[1] + theta[2]) + r23*np.sin(theta[1] + theta[2])*np.sin(theta[0])
-    sz = r12*np.sin(theta[1] + theta[2])*np.cos(theta[0]) - r32*np.cos(theta[1] + theta[2]) + r22*np.sin(theta[1] + theta[2])*np.sin(theta[0])
-    nz = r11*np.sin(theta[1] + theta[2])*np.cos(theta[0]) - r31*np.cos(theta[1] + theta[2]) + r21*np.sin(theta[1] + theta[2])*np.sin(theta[0])
+    ax = em[2, 2]*np.sin(theta[1]+theta[2]) + em[0, 2]*np.cos(theta[1]+theta[2])*np.cos(theta[0]) + em[1, 2]*np.cos(theta[1]+theta[2])*np.sin(theta[0])
+    ay = em[0, 2]*np.sin(theta[0]) - em[1, 2]*np.cos(theta[0])
+    az = em[0, 2]*np.sin(theta[1] + theta[2])*np.cos(theta[0]) - em[2, 2]*np.cos(theta[1] + theta[2]) + em[1, 2]*np.sin(theta[1] + theta[2])*np.sin(theta[0])
+    sz = em[0, 1]*np.sin(theta[1] + theta[2])*np.cos(theta[0]) - em[2, 1]*np.cos(theta[1] + theta[2]) + em[1, 1]*np.sin(theta[1] + theta[2])*np.sin(theta[0])
+    nz = em[0, 0]*np.sin(theta[1] + theta[2])*np.cos(theta[0]) - em[2, 0]*np.cos(theta[1] + theta[2]) + em[1, 0]*np.sin(theta[1] + theta[2])*np.sin(theta[0])
 
 
     theta[3] = np.arctan2(ay,ax)
