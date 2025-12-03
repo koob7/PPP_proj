@@ -238,7 +238,7 @@ def calculate_ik2(x: float, y: float, z: float, phi_in: float, beta_in: float, p
 
 
     theta[3] = np.arctan2(ay,ax)
-    theta[4] = np.atan2(np.sqrt(ax*ax+ay*ay),az)
+    theta[4] = np.arctan2(np.sqrt(ax*ax+ay*ay),az)
     theta[5] = np.arctan2(sz, -nz)
     
     

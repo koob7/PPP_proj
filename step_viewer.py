@@ -22,6 +22,15 @@ import numpy as np
 import socket
 import struct
 
+import serial
+import time
+
+ser = serial.Serial(
+    port='COM3',
+    baudrate=115200,
+    timeout=1  # czas oczekiwania na dane (sekundy)
+)
+
 APP_PORT = 6002
 APP_IP = '127.0.0.1'
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -350,6 +359,10 @@ class StepViewer:
         self.inverse_kinematics_tab.set_pose_desired_numbers(x, y, z, a, b, c)
         self.inverse_kinematics_tab.set_pose_achieved_numbers(x, y, z, a, b, c)
         self.inverse_kinematics_tab.set_target_pose_values((x, y, z, a, b, c))
+        o1, o2, o3, o4, o5, o6 = self.forward_kinematics_tab.get_axis_values()
+        ser.write(f"cmd_a {int(o1*1000)} {int(o2*1000)} {int(o3*1000)} {int(o4*1000)} {int(o5*1000)} {int(o6*1000)}\n".encode())
+
+
 
     def _on_inverse_kinematics_released(self) -> None:
         """Handle inverse kinematics target changes and update robot pose."""
