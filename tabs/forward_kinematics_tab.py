@@ -31,6 +31,8 @@ class ForwardKinematicsTab(QWidget):
         self.axis_sliders: Dict[int, QSlider] = {}
         self.pose_line = None
         self._init_ui()
+        self.set_axis_values((0, 90, 90, 0, 0, 0)) 
+
     
     def _init_ui(self):
         """Initialize the UI components."""
@@ -138,7 +140,10 @@ class ForwardKinematicsTab(QWidget):
         for i in range(1, 7):
             slider = self.axis_sliders[i]
             slider.blockSignals(False)
-            slider.setValue(0)
+            if i == 2 or i == 3:
+                slider.setValue(90)
+            else:
+                slider.setValue(0)
         # Also update pose field via callback
         self._handle_slider_released()
 

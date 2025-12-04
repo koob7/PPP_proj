@@ -22,14 +22,11 @@ import numpy as np
 import socket
 import struct
 
-import serial
-import time
+from serial_comm import SerialManager
+from tabs.serial_terminal_tab import SerialTerminalTab
 
-ser = serial.Serial(
-    port='COM3',
-    baudrate=115200,
-    timeout=1  # czas oczekiwania na dane (sekundy)
-)
+# Serial manager (attempt to open COM3:115200)
+serial_manager = SerialManager(port='COM3', baudrate=115200, timeout=0.1)
 
 APP_PORT = 6002
 APP_IP = '127.0.0.1'
@@ -46,6 +43,7 @@ from PyQt5.QtWidgets import (
     QVBoxLayout,
     QSplitter,
     QTabWidget,
+    QPushButton,
 )
 from PyQt5.QtCore import Qt
 
@@ -137,9 +135,37 @@ class StepViewer:
             on_set_all_visibility=self._set_all_visibility,
         )
         tabs.addTab(self.visibility_tab, "widoczność elementów")
-        self.splitter.addWidget(tabs)
+        # create a control panel that places a large red STOP button above the tabs
+        controls_widget = QWidget()
+        controls_layout = QVBoxLayout(controls_widget)
+        controls_layout.setContentsMargins(6, 6, 6, 6)
+        controls_layout.setSpacing(6)
+
+        stop_btn = QPushButton("STOP")
+        stop_btn.setStyleSheet("background-color: red; color: white; font-weight: bold; font-size: 18pt;")
+        stop_btn.setFixedHeight(90)
+        stop_btn.clicked.connect(lambda: self._send_stop())
+
+        controls_layout.addWidget(stop_btn)
+        controls_layout.addWidget(tabs)
+
+        self.splitter.addWidget(controls_widget)
         tabs.currentChanged.connect(self._on_tab_changed)
         self.tabs = tabs
+
+        # Serial terminal tab
+        try:
+            self.serial_tab = SerialTerminalTab()
+            tabs.addTab(self.serial_tab, "Terminal UART")
+            # wire send callback from UI to serial manager
+            self.serial_tab.set_send_callback(lambda b: serial_manager.write(b))
+            # wire rx callback to append to terminal
+            serial_manager.set_rx_callback(lambda data: self.serial_tab.append_rx(data))
+            # start background reader if port open
+            if serial_manager.is_open():
+                serial_manager.start_reader()
+        except Exception:
+            self.serial_tab = None
 
         # Ustaw domyślną wysokość viewer 3D na 600 px, reszta niech się dostosuje
         try:
@@ -162,6 +188,12 @@ class StepViewer:
         send(1,0,0,0,0,0,0)
         send(0,0,0,0,0,0,0)
         sock.sendto(struct.pack('<II3f', 1, 0, -30.0, 0.0, 0.0), (APP_IP, APP_PORT))
+
+    def __del__(self):
+        try:
+            serial_manager.close()
+        except Exception:
+            pass
 
     
     # -------------------------
@@ -360,8 +392,9 @@ class StepViewer:
         self.inverse_kinematics_tab.set_pose_achieved_numbers(x, y, z, a, b, c)
         self.inverse_kinematics_tab.set_target_pose_values((x, y, z, a, b, c))
         o1, o2, o3, o4, o5, o6 = self.forward_kinematics_tab.get_axis_values()
-        ser.write(f"cmd_a {int(o1*1000)} {int(o2*1000)} {int(o3*1000)} {int(o4*1000)} {int(o5*1000)} {int(o6*1000)}\n".encode())
-
+        text = f"cmd_a {int(o1*1000)} {int(o2*1000)} {int(o3*1000)} {int(o4*1000)} {int(o5*1000)} {int(o6*1000)}\n"
+        serial_manager.write(text.encode())
+        self.serial_tab.append_tx(text)
 
 
     def _on_inverse_kinematics_released(self) -> None:
@@ -387,6 +420,9 @@ class StepViewer:
             
             # Zaktualizuj suwaki kinematyki prostej z obliczonymi kątami
             self.forward_kinematics_tab.set_axis_values((o1, o2, o3, o4, o5, o6))
+            text = f"cmd_a {int(o1*1000)} {int(o2*1000)} {int(o3*1000)} {int(o4*1000)} {int(o5*1000)} {int(o6*1000)}\n"
+            serial_manager.write(text.encode())
+            self.serial_tab.append_tx(text)
 
             
             logger.info(f"IK solved: θ=({o1:.2f}, {o2:.2f}, {o3:.2f}, {o4:.2f}, {o5:.2f}, {o6:.2f})°")
@@ -395,6 +431,19 @@ class StepViewer:
             logger.error(f"Błąd obliczania IK: {e}")
             # W razie błędu pokaż zerowe wartości
             self.inverse_kinematics_tab.set_pose_achieved_numbers(0, 0, 0, 0, 0, 0)
+
+    def _send_stop(self) -> None:
+        """Send a stop command via SerialManager and log it in the terminal tab."""
+        try:
+            cmd = b"cmd_stop\n"
+            serial_manager.write(cmd)
+            if hasattr(self, 'serial_tab') and self.serial_tab:
+                try:
+                    self.serial_tab.append_tx('cmd_stop')
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
 
 
